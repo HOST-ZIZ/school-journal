@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>АСУ РСО — Вход в систему</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #1e3a8a; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card { background: white; width: 380px; padding: 35px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        h2 { text-align: center; margin-bottom: 24px; color: #1e3a8a; font-size: 22px; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 6px; }
+        input { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; outline: none; }
+        input:focus { border-color: #2563eb; }
+        button { width: 100%; background: #2563eb; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        button:hover { background: #1d4ed8; }
+        .error { background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 6px; font-size: 13px; text-align: center; margin-bottom: 16px; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h2>АСУ РСО (Локальный) 🏛️</h2>
+    {% if get_flashed_messages() %}
+        <div class="error">Неверный логин или пароль</div>
+    {% endif %}
+    <form method="POST">
+        <div class="form-group">
+            <label>Логин</label>
+            <input type="text" name="login" required placeholder="admin или teacher">
+        </div>
+        <div class="form-group">
+            <label>Пароль</label>
+            <input type="password" name="password" required placeholder="••••">
+        </div>
+        <button type="submit">Войти в систему</button>
+    </form>
+</div>
+</body>
+</html>

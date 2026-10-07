@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Сводная ведомость — АСУ РСО</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #f8fafc; color: #0f172a; }
+        header { background: #1e3a8a; color: white; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .container { max-width: 1400px; margin: 24px auto; padding: 0 16px; }
+        .filter-bar { background: white; padding: 18px; border-radius: 10px; border: 1px solid #e2e8f0; display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px; }
+        .form-group { flex: 1; }
+        label { display: block; font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 5px; }
+        select { width: 100%; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+        .card { background: white; padding: 20px; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; margin-top: 10px; }
+        th, td { border: 1px solid #cbd5e1; padding: 8px; }
+        th { background: #eff6ff; color: #1e3a8a; }
+        td.student-col { text-align: left; padding-left: 12px; font-weight: bold; }
+        .nav-link { color: #93c5fd; text-decoration: none; font-weight: bold; font-size: 13px; margin-right: 15px; }
+        .logout { background: #ef4444; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>📊 Сводная ведомость успеваемости класса</h1>
+    <div>
+        <a href="/teacher" class="nav-link">В Журнал ↗</a>
+        <span>{{ fio }}</span> | <a href="/logout" class="logout">Выйти</a>
+    </div>
+</header>
+<div class="container">
+    <form method="GET" class="filter-bar">
+        <div class="form-group">
+            <label>Класс</label>
+            <select name="class_id" required onchange="this.form.submit()">
+                <option value="">-- Выберите класс --</option>
+                {% for c in classes %}
+                <option value="{{ c.id }}" {% if selected_class == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Учебный период</label>
+            <select name="period_id" required onchange="this.form.submit()">
+                <option value="">-- Выберите период --</option>
+                {% for p in periods %}
+                <option value="{{ p.id }}" {% if selected_period == p.id %}selected{% endif %}>{{ p.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    {% if report_data %}
+    <div class="card">
+        <h3>Итоговые средние баллы по всем предметам за период</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 40px;">№</th>
+                    <th style="text-align: left; padding-left: 12px; min-width: 200px;">Ученик</th>
+                    {% for sub in subjects %}
+                    <th>{{ sub.name }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in report_data %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td class="student-col">{{ row.fio }}</td>
+                    {% for sub in subjects %}
+                    <td><b>{{ row.marks.get(sub.id, '-') }}</b></td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card" style="text-align: center; color: #64748b; padding: 40px;">
+        <h2>Выберите класс и период для формирования ведомости</h2>
+    </div>
+    {% endif %}
+</div>
+</body>
+</html>

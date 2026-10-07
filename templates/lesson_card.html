@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Карточка урока — АСУ РСО</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #f8fafc; color: #0f172a; padding: 20px; }
+        .container { max-width: 950px; margin: 0 auto; }
+        .alert { background: #dcfce7; color: #15803d; padding: 12px; border-radius: 6px; font-weight: bold; margin-bottom: 20px; }
+        .card { background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        h2, h3 { color: #1e3a8a; margin-bottom: 15px; }
+        .form-group { margin-bottom: 14px; }
+        label { display: block; font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 5px; }
+        input[type="text"], textarea, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
+        textarea { height: 80px; resize: vertical; }
+        .btn { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .btn:hover { background: #1d4ed8; }
+        .back-link { display: inline-block; margin-bottom: 15px; color: #2563eb; text-decoration: none; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+        th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: center; }
+        th { background: #eff6ff; color: #1e3a8a; }
+        td.student-name { text-align: left; padding-left: 12px; font-weight: bold; }
+        .grade-in { width: 50px; height: 32px; text-align: center; font-weight: bold; font-size: 14px; border: 1px solid #94a3b8; border-radius: 4px; }
+        .comment-in { width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a href="/teacher" class="back-link">← Вернуться в журнал</a>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="alert">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="card">
+        <h2>📅 Карточка урока: {{ lesson.lesson_date }}</h2>
+        <p style="color: #64748b; margin-bottom: 15px;">Класс: <b>{{ lesson.class_name }}</b> | Предмет: <b>{{ lesson.subject_name }}</b></p>
+        
+        <form method="POST">
+            <input type="hidden" name="action" value="update_info">
+            <div class="form-group">
+                <label>Тема урока</label>
+                <input type="text" name="topic" value="{{ lesson.topic or '' }}">
+            </div>
+            <div class="form-group">
+                <label>Домашнее задание</label>
+                <textarea name="homework">{{ lesson.homework or '' }}</textarea>
+            </div>
+            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" id="is_held" name="is_held" style="width: 20px; height: 20px;" {% if lesson.is_held == 1 %}checked{% endif %}>
+                <label for="is_held" style="margin-bottom: 0; cursor: pointer; font-size: 14px;">Урок состоялся</label>
+            </div>
+            <button type="submit" class="btn">Сохранить тему и ДЗ</button>
+        </form>
+    </div>
+
+    <!-- ОКНО РУСИЧКИ С ОЦЕНКАМИ И КОММЕНТАРИЯМИ -->
+    <div class="card">
+        <h3>⭐ Оценки, пропуски (Н, У, О) и комментарии</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="save_lesson_grades">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">№</th>
+                        <th style="text-align: left; padding-left: 12px;">Ученик</th>
+                        <th style="width: 100px;">Урок</th>
+                        <th style="width: 180px;">Комментарий к уроку</th>
+                        <th style="width: 100px;">ДЗ</th>
+                        <th style="width: 180px;">Комментарий к ДЗ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for st in students %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td class="student-name">{{ st.fio }}</td>
+                        <td>
+                            <input type="text" name="lesgrade_class_{{ st.id }}" value="{{ lesson_grades.get((st.id, 'class'), {}).get('val', '') }}" class="grade-in" maxlength="2" autocomplete="off" title="Урок / Н">
+                        </td>
+                        <td>
+                            <input type="text" name="comment_class_{{ st.id }}" value="{{ lesson_grades.get((st.id, 'class'), {}).get('comment', '') }}" class="comment-in" placeholder="Пометка...">
+                        </td>
+                        <td>
+                            <input type="text" name="lesgrade_homework_{{ st.id }}" value="{{ lesson_grades.get((st.id, 'homework'), {}).get('val', '') }}" class="grade-in" style="background: #f8fafc; border-style: dashed;" maxlength="2" autocomplete="off" title="ДЗ">
+                        </td>
+                        <td>
+                            <input type="text" name="comment_homework_{{ st.id }}" value="{{ lesson_grades.get((st.id, 'homework'), {}).get('comment', '') }}" class="comment-in" placeholder="Пометка...">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="submit" class="btn" style="background: #16a34a;">Сохранить данные за день</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card" style="background: #fef9c3; border-color: #fde047;">
+        <h3>⚡ Добавить колонку работы на весь класс</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="add_class_column">
+            <div class="form-group">
+                <label>Тип работы</label>
+                <select name="col_type" required>
+                    <option value="control">Контрольная работа (вес 3)</option>
+                    <option value="test">Самостоятельная работа (вес 2)</option>
+                </select>
+            </div>
+            <button type="submit" class="btn" style="background: #ca8a04;">+ Добавить колонку на весь класс</button>
+        </form>
+    </div>
+
+</div>
+</body>
+</html>
