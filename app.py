@@ -5,6 +5,7 @@ import os
 
 app = Flask(__name__)
 app.secret_key = "asu_rso_local_secure_key"
+init_db()
 
 @app.route("/")
 def index():
