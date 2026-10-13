@@ -21,7 +21,7 @@ def login():
         pass_val = request.form.get("password", "").strip()
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM users WHERE login = %s AND password = %s", (login_val, pass_val))
+        cur.execute("SELECT * FROM users WHERE login = ? AND password = ?", (login_val, pass_val))
         user = cur.fetchone()
         cur.close()
         conn.close()
@@ -40,7 +40,7 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
-# --- ПАНЕЛЬ АДМИНИСТРАТОРА (С бэкапом базы) ---
+# --- ПАНЕЛЬ АДМИНИСТРАТОРА ---
 @app.route("/admin", methods=["GET", "POST"])
 def admin_panel():
     if session.get("role") != "admin":
@@ -56,7 +56,7 @@ def admin_panel():
             c_name = request.form.get("class_name", "").strip()
             if c_name:
                 try:
-                    cur.execute("INSERT INTO classes (name) VALUES (%s)", (c_name,))
+                    cur.execute("INSERT INTO classes (name) VALUES (?)", (c_name,))
                     conn.commit()
                     flash(f"Класс «{c_name}» создан!", "success")
                 except:
@@ -67,7 +67,7 @@ def admin_panel():
             fio = request.form.get("fio", "").strip()
             class_id = request.form.get("class_id")
             if fio and class_id:
-                cur.execute("INSERT INTO students (fio, class_id) VALUES (%s, %s)", (fio, class_id))
+                cur.execute("INSERT INTO students (fio, class_id) VALUES (?, ?)", (fio, class_id))
                 conn.commit()
                 flash(f"Ученик {fio} добавлен!", "success")
 
@@ -75,14 +75,14 @@ def admin_panel():
             student_id = request.form.get("student_id")
             new_class_id = request.form.get("new_class_id")
             if student_id and new_class_id:
-                cur.execute("UPDATE students SET class_id = %s WHERE id = %s", (new_class_id, student_id))
+                cur.execute("UPDATE students SET class_id = ? WHERE id = ?", (new_class_id, student_id))
                 conn.commit()
                 flash("Ученик переведён!", "success")
 
         elif action == "delete_student":
             student_id = request.form.get("student_id")
-            cur.execute("DELETE FROM grades WHERE student_id = %s", (student_id,))
-            cur.execute("DELETE FROM students WHERE id = %s", (student_id,))
+            cur.execute("DELETE FROM grades WHERE student_id = ?", (student_id,))
+            cur.execute("DELETE FROM students WHERE id = ?", (student_id,))
             conn.commit()
             flash("Ученик удален!", "success")
 
@@ -90,7 +90,7 @@ def admin_panel():
             s_name = request.form.get("subject_name", "").strip()
             if s_name:
                 try:
-                    cur.execute("INSERT INTO subjects (name) VALUES (%s)", (s_name,))
+                    cur.execute("INSERT INTO subjects (name) VALUES (?)", (s_name,))
                     conn.commit()
                     flash("Предмет добавлен!", "success")
                 except:
@@ -99,8 +99,8 @@ def admin_panel():
 
         elif action == "delete_subject":
             sub_id = request.form.get("subject_id")
-            cur.execute("DELETE FROM lessons WHERE subject_id = %s", (sub_id,))
-            cur.execute("DELETE FROM subjects WHERE id = %s", (sub_id,))
+            cur.execute("DELETE FROM lessons WHERE subject_id = ?", (sub_id,))
+            cur.execute("DELETE FROM subjects WHERE id = ?", (sub_id,))
             conn.commit()
             flash("Предмет удален!", "success")
 
@@ -110,7 +110,7 @@ def admin_panel():
             pass_u = request.form.get("password", "").strip()
             if fio and login_u and pass_u:
                 try:
-                    cur.execute("INSERT INTO users (fio, login, password, role) VALUES (%s, %s, %s, 'teacher')", (fio, login_u, pass_u))
+                    cur.execute("INSERT INTO users (fio, login, password, role) VALUES (?, ?, ?, 'teacher')", (fio, login_u, pass_u))
                     conn.commit()
                     flash(f"Учитель {fio} зарегистрирован!", "success")
                 except:
@@ -122,7 +122,7 @@ def admin_panel():
             start_d = request.form.get("start_date")
             end_d = request.form.get("end_date")
             if p_name and start_d and end_d:
-                cur.execute("INSERT INTO periods (name, start_date, end_date) VALUES (%s, %s, %s)", (p_name, start_d, end_d))
+                cur.execute("INSERT INTO periods (name, start_date, end_date) VALUES (?, ?, ?)", (p_name, start_d, end_d))
                 conn.commit()
                 flash(f"Период «{p_name}» настроен!", "success")
 
@@ -145,15 +145,14 @@ def admin_panel():
 
     return render_template("admin.html", fio=session.get("fio"), classes=classes, students=students, subjects=subjects, teachers=teachers, periods=periods)
 
-# Скачивание бэкапа (для облака выдает уведомление или экспорт)
 @app.route("/admin/backup")
 def admin_backup():
     if session.get("role") != "admin":
         return redirect(url_for("login"))
-    flash("В облачной версии резервные копии управляются автоматически через панель Supabase.", "info")
+    flash("Для SQLite база данных хранится в локальном файле.", "info")
     return redirect(url_for("admin_panel"))
 
-# --- ЖУРНАЛ УЧИТЕЛЯ (Средневзвешенный балл и посещаемость) ---
+# --- ЖУРНАЛ УЧИТЕЛЯ ---
 @app.route("/teacher", methods=["GET", "POST"])
 def teacher_panel():
     if "user_id" not in session:
@@ -173,37 +172,37 @@ def teacher_panel():
             s_id = request.form.get("subject_id")
             p_id = request.form.get("period_id")
 
-            cur.execute("SELECT id FROM lessons WHERE class_id = %s AND subject_id = %s", (c_id, s_id))
+            cur.execute("SELECT id FROM lessons WHERE class_id = ? AND subject_id = ?", (c_id, s_id))
             all_lessons = cur.fetchall()
             for les in all_lessons:
                 les_id = les["id"]
                 is_checked = 1 if request.form.get(f"held_{les_id}") == "on" else 0
-                cur.execute("UPDATE lessons SET is_held = %s WHERE id = %s", (is_checked, les_id))
+                cur.execute("UPDATE lessons SET is_held = ? WHERE id = ?", (is_checked, les_id))
 
             for key, val in request.form.items():
                 if key.startswith("grade_"):
                     parts = key.split("_")
                     if len(parts) == 4:
-                        g_type = parts[1] # class, homework, extra
+                        g_type = parts[1]
                         st_id, les_id = parts[2], parts[3]
                         grade_val = val.strip().upper()
 
                         if grade_val in ["2", "3", "4", "5", "Н", "У", "О", ""]:
-                            cur.execute("SELECT lesson_type FROM lessons WHERE id = %s", (les_id,))
+                            cur.execute("SELECT lesson_type FROM lessons WHERE id = ?", (les_id,))
                             les_info = cur.fetchone()
                             weight = 1
                             if les_info and les_info["lesson_type"] == 'control': weight = 3
                             elif les_info and les_info["lesson_type"] == 'test': weight = 2
 
-                            cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = %s", (st_id, les_id, g_type))
+                            cur.execute("SELECT id FROM grades WHERE student_id = ? AND lesson_id = ? AND grade_type = ?", (st_id, les_id, g_type))
                             existing = cur.fetchone()
                             if existing:
                                 if grade_val:
-                                    cur.execute("UPDATE grades SET grade = %s, weight = %s WHERE id = %s", (grade_val, weight, existing["id"]))
+                                    cur.execute("UPDATE grades SET grade = ?, weight = ? WHERE id = ?", (grade_val, weight, existing["id"]))
                                 else:
-                                    cur.execute("DELETE FROM grades WHERE id = %s", (existing["id"],))
+                                    cur.execute("DELETE FROM grades WHERE id = ?", (existing["id"],))
                             elif grade_val:
-                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, %s, %s)", (st_id, les_id, grade_val, g_type, weight))
+                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (?, ?, ?, ?, ?)", (st_id, les_id, grade_val, g_type, weight))
 
             conn.commit()
             cur.close()
@@ -224,9 +223,9 @@ def teacher_panel():
     student_stats = {}
 
     if class_id and subject_id and period_id:
-        cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (class_id,))
+        cur.execute("SELECT * FROM students WHERE class_id = ? ORDER BY fio", (class_id,))
         students = cur.fetchall()
-        cur.execute("SELECT * FROM periods WHERE id = %s", (period_id,))
+        cur.execute("SELECT * FROM periods WHERE id = ?", (period_id,))
         period = cur.fetchone()
 
         if period:
@@ -237,23 +236,23 @@ def teacher_panel():
             while cur_date <= end_dt:
                 if cur_date.weekday() != 6: 
                     d_str = cur_date.isoformat()
-                    cur.execute("SELECT id FROM lessons WHERE class_id = %s AND subject_id = %s AND lesson_date = %s AND lesson_type = 'lesson'", (class_id, subject_id, d_str))
+                    cur.execute("SELECT id FROM lessons WHERE class_id = ? AND subject_id = ? AND lesson_date = ? AND lesson_type = 'lesson'", (class_id, subject_id, d_str))
                     exists = cur.fetchone()
                     if not exists:
-                        cur.execute("INSERT INTO lessons (class_id, subject_id, lesson_date, topic, homework, is_held, lesson_type) VALUES (%s, %s, %s, %s, %s, 1, 'lesson')", 
-                                     (class_id, subject_id, d_str, "Урок", ""))
+                        cur.execute("INSERT INTO lessons (class_id, subject_id, lesson_date, topic, homework, is_held, lesson_type) VALUES (?, ?, ?, ?, ?, 1, 'lesson')", 
+                                   (class_id, subject_id, d_str, "Урок", ""))
                 cur_date += datetime.timedelta(days=1)
             conn.commit()
 
             cur.execute("""
                 SELECT * FROM lessons 
-                WHERE class_id = %s AND subject_id = %s AND lesson_date BETWEEN %s AND %s 
+                WHERE class_id = ? AND subject_id = ? AND lesson_date BETWEEN ? AND ? 
                 ORDER BY lesson_date, id
             """, (class_id, subject_id, period["start_date"], period["end_date"]))
             lessons = cur.fetchall()
 
         cur.execute("""
-            SELECT g.* FROM grades g JOIN lessons l ON g.lesson_id = l.id WHERE l.class_id = %s AND l.subject_id = %s
+            SELECT g.* FROM grades g JOIN lessons l ON g.lesson_id = l.id WHERE l.class_id = ? AND l.subject_id = ?
         """, (class_id, subject_id))
         raw_grades = cur.fetchall()
 
@@ -274,7 +273,7 @@ def teacher_panel():
                 for g_t in ['class', 'homework', 'extra']:
                     val = grades_map.get((st["id"], l_id, g_t), "")
                     if val in ["2", "3", "4", "5"]:
-                        cur.execute("SELECT weight FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = %s", (st["id"], l_id, g_t))
+                        cur.execute("SELECT weight FROM grades WHERE student_id = ? AND lesson_id = ? AND grade_type = ?", (st["id"], l_id, g_t))
                         g_row = cur.fetchone()
                         w = g_row["weight"] if g_row and g_row["weight"] else 1
                         total_score += int(val) * w
@@ -331,11 +330,11 @@ def class_report():
     subjects = []
     
     if class_id and period_id:
-        cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (class_id,))
+        cur.execute("SELECT * FROM students WHERE class_id = ? ORDER BY fio", (class_id,))
         students = cur.fetchall()
         cur.execute("SELECT * FROM subjects ORDER BY name")
         subjects = cur.fetchall()
-        cur.execute("SELECT * FROM periods WHERE id = %s", (period_id,))
+        cur.execute("SELECT * FROM periods WHERE id = ?", (period_id,))
         period = cur.fetchone()
 
         for st in students:
@@ -344,7 +343,7 @@ def class_report():
                 cur.execute("""
                     SELECT g.grade, g.weight FROM grades g 
                     JOIN lessons l ON g.lesson_id = l.id 
-                    WHERE g.student_id = %s AND l.class_id = %s AND l.subject_id = %s AND l.lesson_date BETWEEN %s AND %s
+                    WHERE g.student_id = ? AND l.class_id = ? AND l.subject_id = ? AND l.lesson_date BETWEEN ? AND ?
                 """, (st["id"], class_id, sub["id"], period["start_date"], period["end_date"]))
                 raw = cur.fetchall()
 
@@ -376,7 +375,7 @@ def edit_lesson(lesson_id):
         FROM lessons l 
         JOIN classes c ON l.class_id = c.id 
         JOIN subjects s ON l.subject_id = s.id 
-        WHERE l.id = %s
+        WHERE l.id = ?
     """, (lesson_id,))
     lesson = cur.fetchone()
 
@@ -393,7 +392,7 @@ def edit_lesson(lesson_id):
             homework = request.form.get("homework", "").strip()
             is_held = 1 if request.form.get("is_held") == "on" else 0
             
-            cur.execute("UPDATE lessons SET topic = %s, homework = %s, is_held = %s WHERE id = %s", (topic, homework, is_held, lesson_id))
+            cur.execute("UPDATE lessons SET topic = ?, homework = ?, is_held = ? WHERE id = ?", (topic, homework, is_held, lesson_id))
             conn.commit()
             flash("Информация об уроке обновлена!", "success")
 
@@ -409,15 +408,15 @@ def edit_lesson(lesson_id):
                         if grade_val in ["2", "3", "4", "5", "Н", "У", "О", ""]:
                             weight = 3 if lesson["lesson_type"] == 'control' else (2 if lesson["lesson_type"] == 'test' else 1)
                             
-                            cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = %s", (st_id, lesson_id, g_type))
+                            cur.execute("SELECT id FROM grades WHERE student_id = ? AND lesson_id = ? AND grade_type = ?", (st_id, lesson_id, g_type))
                             existing = cur.fetchone()
                             if existing:
                                 if grade_val:
-                                    cur.execute("UPDATE grades SET grade = %s, weight = %s, comment = %s WHERE id = %s", (grade_val, weight, comment, existing["id"]))
+                                    cur.execute("UPDATE grades SET grade = ?, weight = ?, comment = ? WHERE id = ?", (grade_val, weight, comment, existing["id"]))
                                 else:
-                                    cur.execute("DELETE FROM grades WHERE id = %s", (existing["id"],))
+                                    cur.execute("DELETE FROM grades WHERE id = ?", (existing["id"],))
                             elif grade_val:
-                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight, comment) VALUES (%s, %s, %s, %s, %s, %s)", (st_id, lesson_id, grade_val, g_type, weight, comment))
+                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight, comment) VALUES (?, ?, ?, ?, ?, ?)", (st_id, lesson_id, grade_val, g_type, weight, comment))
             conn.commit()
             flash("Оценки и комментарии сохранены!", "success")
 
@@ -427,7 +426,7 @@ def edit_lesson(lesson_id):
             
             cur.execute("""
                 INSERT INTO lessons (class_id, subject_id, lesson_date, topic, homework, is_held, lesson_type)
-                VALUES (%s, %s, %s, %s, '', 1, %s)
+                VALUES (?, ?, ?, ?, '', 1, ?)
             """, (lesson["class_id"], lesson["subject_id"], lesson["lesson_date"], col_title, col_type))
             conn.commit()
             flash("Дополнительная колонка работы добавлена в журнал!", "success")
@@ -436,9 +435,9 @@ def edit_lesson(lesson_id):
         conn.close()
         return redirect(url_for("edit_lesson", lesson_id=lesson_id))
 
-    cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (lesson["class_id"],))
+    cur.execute("SELECT * FROM students WHERE class_id = ? ORDER BY fio", (lesson["class_id"],))
     students = cur.fetchall()
-    cur.execute("SELECT * FROM grades WHERE lesson_id = %s", (lesson_id,))
+    cur.execute("SELECT * FROM grades WHERE lesson_id = ?", (lesson_id,))
     raw_grades = cur.fetchall()
     
     lesson_grades = {}
