@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Настройка расписания уроков</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .nav-links { margin-bottom: 20px; }
+        .nav-links a { margin-right: 15px; color: #0056b3; text-decoration: none; font-weight: bold; }
+        h1 { color: #2c3e50; margin-top: 0; }
+        .filters { display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap; background: #eef2f7; padding: 15px; border-radius: 8px; }
+        .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 180px; }
+        label { font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #495057; }
+        select, input[type="date"], button { padding: 9px; border: 1px solid #ced4da; border-radius: 5px; font-size: 14px; }
+        button { background: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #218838; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #dee2e6; padding: 10px 14px; text-align: left; }
+        th { background: #f8f9fa; color: #333; }
+        .flash { padding: 10px 15px; margin-bottom: 15px; border-radius: 5px; font-weight: bold; }
+        .flash.success { background: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="nav-links">
+        <a href="/admin">← Панель администратора</a>
+        <a href="/teacher">Журнал учителя</a>
+        <a href="/diary">Электронный дневник</a>
+    </div>
+
+    <h1>Настройка расписания уроков (5-дневка)</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for cat, msg in messages %}
+                <div class="flash {{ cat }}">{{ msg }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="GET" action="/schedule" class="filters">
+        <div class="filter-group">
+            <label>Класс:</label>
+            <select name="class_id" required>
+                <option value="">Выберите класс...</option>
+                {% for c in classes %}
+                    <option value="{{ c.id }}" {% if selected_class == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Предмет:</label>
+            <select name="subject_id" required>
+                <option value="">Выберите предмет...</option>
+                {% for s in subjects %}
+                    <option value="{{ s.id }}" {% if selected_subject == s.id %}selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Четверть (Период):</label>
+            <select name="period_id" required>
+                <option value="">Выберите четверть...</option>
+                {% for p in periods %}
+                    <option value="{{ p.id }}" {% if selected_period == p.id %}selected{% endif %}>{{ p.name }} ({{ p.start_date }} - {{ p.end_date }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group" style="justify-content: flex-end;">
+            <button type="submit" style="background: #007bff;">Загрузить дни</button>
+        </div>
+    </form>
+
+    {% if days_list %}
+        <form method="POST" action="/schedule">
+            <input type="hidden" name="class_id" value="{{ selected_class }}">
+            <input type="hidden" name="subject_id" value="{{ selected_subject }}">
+            <input type="hidden" name="period_id" value="{{ selected_period }}">
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Дата</th>
+                        <th style="width: 30%;">День недели</th>
+                        <th style="width: 45%;">Номер урока (оставь пустым, если урока нет)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in days_list %}
+                        <tr>
+                            <td><strong>{{ d.date }}</strong></td>
+                            <td>{{ d.day_name }}</td>
+                            <td>
+                                <select name="lesson_num_{{ d.date }}" style="width: 100%;">
+                                    <option value="">-- Нет урока в этот день --</option>
+                                    {% for n in range(1, 8) %}
+                                        <option value="{{ n }}" {% if d.current_num|string == n|string %}selected{% endif %}>
+                                            {{ n }}-й урок
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="submit" style="padding: 12px 25px; font-size: 16px;">Сохранить расписание</button>
+            </div>
+        </form>
+    {% endif %}
+</div>
+</body>
+</html>
