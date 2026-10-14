@@ -65,11 +65,22 @@ def init_db():
             class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
             subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
             lesson_date TEXT NOT NULL,
+            lesson_number INTEGER DEFAULT 1,
             topic TEXT,
             homework TEXT,
             is_held INTEGER DEFAULT 1,
             lesson_type TEXT DEFAULT 'lesson'
         )
+    """)
+
+    # Если колонка lesson_number еще не добавлена в существующую таблицу
+    cur.execute("""
+        DO $$ 
+        BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lessons' AND column_name='lesson_number') THEN
+                ALTER TABLE lessons ADD COLUMN lesson_number INTEGER DEFAULT 1;
+            END IF;
+        END $$;
     """)
 
     cur.execute("""
@@ -84,6 +95,7 @@ def init_db():
         )
     """)
 
+    # Создание пользователей по умолчанию
     cur.execute("SELECT id FROM users WHERE login = %s", ('admin',))
     if not cur.fetchone():
         cur.execute("""
