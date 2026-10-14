@@ -334,7 +334,7 @@ def student_diary():
         timetable=timetable
     )
 
-# --- ЖУРНАЛ УЧИТЕЛЯ ---
+# --- ЖУРНАЛ УЧИТЕЛЯ (В СТИЛЕ АСУ РСО С ДВОЙНЫМИ ОЦЕНКАМИ ЧЕРЕЗ СЛЕШ) ---
 @app.route("/teacher", methods=["GET", "POST"])
 def teacher_panel():
     if "user_id" not in session:
@@ -354,42 +354,54 @@ def teacher_panel():
             s_id = request.form.get("subject_id")
             p_id = request.form.get("period_id")
 
-            cur.execute("SELECT id FROM lessons WHERE class_id = %s AND subject_id = %s", (c_id, s_id))
-            all_lessons = cur.fetchall()
-            for les in all_lessons:
-                les_id = les["id"]
-                is_checked = 1 if request.form.get(f"held_{les_id}") == "on" else 0
-                cur.execute("UPDATE lessons SET is_held = %s WHERE id = %s", (is_checked, les_id))
-
+            # Обработка ячеек с оценками вида cell_stID_lesID
             for key, val in request.form.items():
-                if key.startswith("grade_"):
+                if key.startswith("cell_"):
                     parts = key.split("_")
-                    if len(parts) == 4:
-                        g_type = parts[1]
-                        st_id, les_id = parts[2], parts[3]
-                        grade_val = val.strip().upper()
+                    if len(parts) == 3:
+                        st_id, les_id = parts[1], parts[2]
+                        raw_val = val.strip().upper().replace("\\", "/")
+                        
+                        # Разделяем на 1-ю и 2-ю оценку через слеш (урок / дз)
+                        g_parts = [p.strip() for p in raw_val.split("/") if p.strip()] if "/" in raw_val else ([raw_val] if raw_val else [])
+                        
+                        val_class = g_parts[0] if len(g_parts) > 0 else ""
+                        val_hw = g_parts[1] if len(g_parts) > 1 else ""
 
-                        if grade_val in ["2", "3", "4", "5", "Н", "У", "О", ""]:
-                            cur.execute("SELECT lesson_type FROM lessons WHERE id = %s", (les_id,))
-                            les_info = cur.fetchone()
-                            weight = 1
-                            if les_info and les_info["lesson_type"] == 'control': weight = 3
-                            elif les_info and les_info["lesson_type"] == 'test': weight = 2
+                        # Получаем тип урока для веса
+                        cur.execute("SELECT lesson_type FROM lessons WHERE id = %s", (les_id,))
+                        les_info = cur.fetchone()
+                        w_class = 3 if les_info and les_info["lesson_type"] == 'control' else (2 if les_info and les_info["lesson_type"] == 'test' else 1)
+                        w_hw = 1
 
-                            cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = %s", (st_id, les_id, g_type))
-                            existing = cur.fetchone()
-                            if existing:
-                                if grade_val:
-                                    cur.execute("UPDATE grades SET grade = %s, weight = %s WHERE id = %s", (grade_val, weight, existing["id"]))
-                                else:
-                                    cur.execute("DELETE FROM grades WHERE id = %s", (existing["id"],))
-                            elif grade_val:
-                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, %s, %s)", (st_id, les_id, grade_val, g_type, weight))
+                        # 1. Сохранение первой оценки (за урок)
+                        cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'class'", (st_id, les_id))
+                        exist_class = cur.fetchone()
+                        if val_class in ["2", "3", "4", "5", "Н", "У", "О"]:
+                            if exist_class:
+                                cur.execute("UPDATE grades SET grade = %s, weight = %s WHERE id = %s", (val_class, w_class, exist_class["id"]))
+                            else:
+                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, 'class', %s)", (st_id, les_id, val_class, w_class))
+                        else:
+                            if exist_class:
+                                cur.execute("DELETE FROM grades WHERE id = %s", (exist_class["id"],))
+
+                        # 2. Сохранение второй оценки (за ДЗ)
+                        cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'homework'", (st_id, les_id))
+                        exist_hw = cur.fetchone()
+                        if val_hw in ["2", "3", "4", "5", "Н", "У", "О"]:
+                            if exist_hw:
+                                cur.execute("UPDATE grades SET grade = %s, weight = %s WHERE id = %s", (val_hw, w_hw, exist_hw["id"]))
+                            else:
+                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, 'homework', %s)", (st_id, les_id, val_hw, w_hw))
+                        else:
+                            if exist_hw:
+                                cur.execute("DELETE FROM grades WHERE id = %s", (exist_hw["id"],))
 
             conn.commit()
             cur.close()
             conn.close()
-            flash("Журнал сохранен!", "success")
+            flash("Журнал успешно сохранён!", "success")
             return redirect(url_for("teacher_panel", class_id=c_id, subject_id=s_id, period_id=p_id))
 
     cur.execute("SELECT * FROM classes ORDER BY name")
@@ -401,8 +413,15 @@ def teacher_panel():
 
     students = []
     lessons = []
-    grades_map = {}
+    month_groups = []
+    cell_values = {}
     student_stats = {}
+
+    months_ru = {
+        1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель",
+        5: "Май", 6: "Июнь", 7: "Июль", 8: "Август",
+        9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь"
+    }
 
     if class_id and subject_id and period_id:
         cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (class_id,))
@@ -416,37 +435,64 @@ def teacher_panel():
                 WHERE class_id = %s AND subject_id = %s AND lesson_date BETWEEN %s AND %s 
                 ORDER BY lesson_date, lesson_number ASC, id ASC
             """, (class_id, subject_id, period["start_date"], period["end_date"]))
-            lessons = cur.fetchall()
+            lessons_raw = cur.fetchall()
+            
+            # Подготовка списка уроков с номером дня и группировка по месяцам
+            current_m_key = None
+            for les in lessons_raw:
+                dt = datetime.datetime.strptime(les["lesson_date"], "%Y-%m-%d").date()
+                les_dict = dict(les)
+                les_dict["day_num"] = dt.day
+                lessons.append(les_dict)
+
+                m_key = (dt.year, dt.month)
+                if current_m_key != m_key:
+                    current_m_key = m_key
+                    month_groups.append({
+                        "name": months_ru.get(dt.month, ""),
+                        "count": 1
+                    })
+                else:
+                    month_groups[-1]["count"] += 1
 
         cur.execute("""
             SELECT g.* FROM grades g JOIN lessons l ON g.lesson_id = l.id WHERE l.class_id = %s AND l.subject_id = %s
         """, (class_id, subject_id))
         raw_grades = cur.fetchall()
 
+        # Собираем оценки: если есть и за урок, и за ДЗ — формируем строку "5/4"
+        grades_lookup = {}
         for g in raw_grades:
-            try:
-                g_type = g["grade_type"] if "grade_type" in g.keys() and g["grade_type"] else "class"
-            except:
-                g_type = "class"
-            grades_map[(g["student_id"], g["lesson_id"], g_type)] = g["grade"]
+            key = (g["student_id"], g["lesson_id"])
+            if key not in grades_lookup:
+                grades_lookup[key] = {}
+            grades_lookup[key][g["grade_type"]] = g
 
+        for key, g_dict in grades_lookup.items():
+            g_cl = g_dict.get("class", {}).get("grade", "")
+            g_hw = g_dict.get("homework", {}).get("grade", "")
+            
+            if g_cl and g_hw:
+                cell_values[key] = f"{g_cl}/{g_hw}"
+            elif g_cl:
+                cell_values[key] = g_cl
+            elif g_hw:
+                cell_values[key] = f"/{g_hw}"
+
+        # Подсчёт средней оценки
         valid_lesson_ids = {l["id"] for l in lessons}
         for st in students:
             total_score = 0.0
             total_weight = 0
-            n_count = 0
 
             for l_id in valid_lesson_ids:
-                for g_t in ['class', 'homework', 'extra']:
-                    val = grades_map.get((st["id"], l_id, g_t), "")
-                    if val in ["2", "3", "4", "5"]:
-                        cur.execute("SELECT weight FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = %s", (st["id"], l_id, g_t))
-                        g_row = cur.fetchone()
-                        w = g_row["weight"] if g_row and g_row["weight"] else 1
-                        total_score += int(val) * w
+                g_dict = grades_lookup.get((st["id"], l_id), {})
+                for g_t in ['class', 'homework', 'test', 'control']:
+                    g_obj = g_dict.get(g_t)
+                    if g_obj and g_obj["grade"] in ["2", "3", "4", "5"]:
+                        w = g_obj["weight"] if g_obj["weight"] else 1
+                        total_score += int(g_obj["grade"]) * w
                         total_weight += w
-                    elif val == "Н":
-                        n_count += 1
             
             avg = round(total_score / total_weight, 2) if total_weight > 0 else 0.0
             
@@ -456,7 +502,7 @@ def teacher_panel():
             elif avg >= 2.5: period_grade = "3"
             elif avg > 0: period_grade = "2"
 
-            student_stats[st["id"]] = {"avg": avg, "period_grade": period_grade, "missed_n": n_count}
+            student_stats[st["id"]] = {"avg": f"{avg:.2f}" if avg > 0 else "-", "period_grade": period_grade}
 
     cur.close()
     conn.close()
@@ -473,7 +519,8 @@ def teacher_panel():
         selected_period=period_id,
         students=students,
         lessons=lessons,
-        grades_map=grades_map,
+        month_groups=month_groups,
+        cell_values=cell_values,
         student_stats=student_stats
     )
 
