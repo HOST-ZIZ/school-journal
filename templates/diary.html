@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Электронный дневник ученика</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #eef2f7; margin: 0; padding: 20px; color: #2c3e50; }
+        .diary-card { max-width: 950px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.06); padding: 25px; }
+        .header-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #edf2f7; padding-bottom: 15px; }
+        .header-nav a { color: #0056b3; text-decoration: none; font-weight: bold; font-size: 14px; }
+        .filters { display: flex; gap: 15px; flex-wrap: wrap; background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 25px; align-items: flex-end; }
+        .filter-item { display: flex; flex-direction: column; flex: 1; min-width: 180px; }
+        .filter-item label { font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #64748b; }
+        select, input[type="date"], button { padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
+        button { background: #3b82f6; color: #fff; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2563eb; }
+
+        .timeline { display: flex; flex-direction: column; gap: 12px; }
+        .lesson-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; cursor: pointer; transition: all 0.2s ease; }
+        .lesson-row:hover { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.12); }
+        .lesson-info { display: flex; align-items: center; gap: 18px; }
+        .lesson-num { width: 34px; height: 34px; border-radius: 50%; background: #e0e7ff; color: #3730a3; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; }
+        .subject-title { font-size: 16px; font-weight: bold; color: #1e293b; }
+        .lesson-subtext { font-size: 13px; color: #64748b; margin-top: 3px; }
+
+        .marks-container { display: flex; gap: 10px; align-items: center; }
+        .mark-badge { min-width: 30px; height: 30px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; color: white; padding: 0 4px; }
+        .mark-5 { background: #10b981; }
+        .mark-4 { background: #3b82f6; }
+        .mark-3 { background: #f59e0b; }
+        .mark-2 { background: #ef4444; }
+        .mark-n { background: #64748b; }
+        .mark-label { font-size: 11px; text-transform: uppercase; color: #94a3b8; display: block; text-align: center; margin-top: 2px; }
+
+        /* Модальное окно с темой и ДЗ */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-header { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
+        .modal-body { font-size: 14px; line-height: 1.6; color: #334155; }
+        .modal-body strong { color: #0f172a; }
+        .modal-close { margin-top: 20px; text-align: right; }
+        .btn-close { background: #64748b; padding: 8px 16px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+<div class="diary-card">
+    <div class="header-nav">
+        <div>
+            <h2 style="margin: 0;">Электронный дневник</h2>
+            <span style="font-size: 13px; color: #64748b;">Расписание и оценки на день</span>
+        </div>
+        <div>
+            <a href="/teacher">← В журнал учителя</a>
+            <a href="/schedule" style="margin-left: 15px;">Настройка расписания</a>
+        </div>
+    </div>
+
+    <form method="GET" action="/diary" class="filters">
+        <div class="filter-item">
+            <label>Класс:</label>
+            <select name="class_id" onchange="this.form.submit()" required>
+                <option value="">Выберите класс...</option>
+                {% for c in classes %}
+                    <option value="{{ c.id }}" {% if selected_class == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-item">
+            <label>Ученик:</label>
+            <select name="student_id">
+                <option value="">(Все оценки / Общий вид)</option>
+                {% for st in students %}
+                    <option value="{{ st.id }}" {% if selected_student == st.id %}selected{% endif %}>{{ st.fio }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-item">
+            <label>Дата:</label>
+            <input type="date" name="date" value="{{ selected_date }}" required>
+        </div>
+
+        <div class="filter-item" style="flex: 0;">
+            <button type="submit">Показать</button>
+        </div>
+    </form>
+
+    {% if timetable %}
+        <div class="timeline">
+            {% for item in timetable %}
+                <div class="lesson-row" onclick="openModal('{{ item.subject }}', '{{ item.topic }}', '{{ item.homework }}', '{{ item.comment }}')">
+                    <div class="lesson-info">
+                        <div class="lesson-num">{{ item.number }}</div>
+                        <div>
+                            <div class="subject-title">{{ item.subject }}</div>
+                            <div class="lesson-subtext">Тема: {{ item.topic }}</div>
+                        </div>
+                    </div>
+
+                    <div class="marks-container">
+                        {% if item.grade_class %}
+                            <div>
+                                <div class="mark-badge mark-{{ item.grade_class|lower }}">{{ item.grade_class }}</div>
+                                <span class="mark-label">Урок</span>
+                            </div>
+                        {% endif %}
+                        {% if item.grade_homework %}
+                            <div>
+                                <div class="mark-badge mark-{{ item.grade_homework|lower }}">{{ item.grade_homework }}</div>
+                                <span class="mark-label">ДЗ</span>
+                            </div>
+                        {% endif %}
+                        {% if item.grade_test %}
+                            <div>
+                                <div class="mark-badge mark-{{ item.grade_test|lower }}">{{ item.grade_test }}</div>
+                                <span class="mark-label">КР/СР</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% elif selected_class %}
+        <p style="text-align: center; color: #94a3b8; margin: 40px 0;">На эту дату уроков в расписании не найдено.</p>
+    {% endif %}
+</div>
+
+<!-- Модальное окно темы и ДЗ -->
+<div class="modal-overlay" id="lessonModal">
+    <div class="modal">
+        <div class="modal-header" id="modalSubject">Предмет</div>
+        <div class="modal-body">
+            <p><strong>Тема урока:</strong> <span id="modalTopic"></span></p>
+            <p><strong>Домашнее задание:</strong> <span id="modalHomework"></span></p>
+            <p id="modalCommentBlock" style="display: none;"><strong>Комментарий к оценке:</strong> <span id="modalComment"></span></p>
+        </div>
+        <div class="modal-close">
+            <button class="btn-close" onclick="closeModal()">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openModal(subject, topic, homework, comment) {
+        document.getElementById('modalSubject').innerText = subject;
+        document.getElementById('modalTopic').innerText = topic;
+        document.getElementById('modalHomework').innerText = homework;
+        const commBlock = document.getElementById('modalCommentBlock');
+        if (comment && comment.trim() !== '') {
+            document.getElementById('modalComment').innerText = comment;
+            commBlock.style.display = 'block';
+        } else {
+            commBlock.style.display = 'none';
+        }
+        document.getElementById('lessonModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('lessonModal').style.display = 'none';
+    }
+
+    window.onclick = function(event) {
+        const modal = document.getElementById('lessonModal');
+        if (event.target == modal) {
+            closeModal();
+        }
+    }
+</script>
+</body>
+</html>
