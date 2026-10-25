@@ -2,70 +2,90 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>АСУ РСО. Классный журнал</title>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: Tahoma, Arial, sans-serif; font-size: 11px; margin: 0; background: #e9edf2; color: #333; }
-        
-        .top-header { background: #1c609c; color: white; padding: 6px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f4370; }
+        html, body { margin: 0; padding: 0; width: 100%; font-family: Tahoma, Arial, sans-serif; font-size: 11px; background: #e9edf2; color: #333; }
+
+        /* Верхняя панель */
+        .top-header { background: #1c609c; color: white; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f4370; }
         .logo-title { font-size: 13px; font-weight: bold; }
-        .user-block a { color: #d0e4f7; text-decoration: none; font-size: 11px; margin-left: 10px; }
-        .user-block a:hover { text-decoration: underline; }
+        .user-block { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; }
+        .user-block a { color: #d0e4f7; text-decoration: none; }
 
-        .nav-toolbar { background: #3b7bb5; padding: 4px 15px; display: flex; gap: 12px; }
-        .nav-toolbar a { color: #ffffff; text-decoration: none; font-size: 11px; padding: 3px 6px; }
-        .nav-toolbar a.active { background: #1c609c; font-weight: bold; border-radius: 2px; }
+        /* Навигация */
+        .nav-toolbar { background: #3b7bb5; padding: 6px 12px; display: flex; gap: 12px; overflow-x: auto; }
+        .nav-toolbar a { color: #ffffff; text-decoration: none; font-size: 11px; white-space: nowrap; }
+        .nav-toolbar a.active { background: #1c609c; font-weight: bold; border-radius: 2px; padding: 2px 6px; }
 
-        .container { padding: 10px 15px; position: relative; }
-        .journal-title-bar { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; }
-        .journal-heading { font-size: 16px; font-weight: bold; color: #1c609c; }
+        .container { padding: 8px; width: 100%; max-width: 100%; }
+        
+        .journal-title-bar { margin-bottom: 8px; }
+        .journal-heading { font-size: 15px; font-weight: bold; color: #1c609c; }
+        .journal-subtitle { color: #666; font-size: 11px; display: block; margin-top: 3px; }
 
-        .filter-panel { background: #e2e8f0; border: 1px solid #b8cce4; padding: 8px 12px; display: flex; gap: 15px; align-items: center; border-radius: 3px; margin-bottom: 12px; }
-        .filter-group { display: flex; align-items: center; gap: 6px; }
+        /* Панель фильтров: адаптивная под мобильный */
+        .filter-panel { background: #e2e8f0; border: 1px solid #b8cce4; padding: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-radius: 3px; margin-bottom: 10px; width: 100%; }
+        .filter-group { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 130px; }
         .filter-group label { font-weight: bold; font-size: 11px; color: #333; }
-        select, button { font-size: 11px; padding: 2px 5px; border: 1px solid #7f9db9; background: #fff; }
-        button.btn-load { background: #28a745; color: white; border: 1px solid #1e7e34; font-weight: bold; cursor: pointer; padding: 3px 12px; }
-        button.btn-save { background: #007bff; color: white; border: 1px solid #0056b3; font-weight: bold; cursor: pointer; padding: 5px 18px; font-size: 12px; }
+        select, button { font-size: 11px; padding: 4px 6px; border: 1px solid #7f9db9; background: #fff; border-radius: 2px; }
+        button.btn-load { background: #28a745; color: white; border: 1px solid #1e7e34; font-weight: bold; cursor: pointer; padding: 4px 14px; }
+        button.btn-save { background: #007bff; color: white; border: 1px solid #0056b3; font-weight: bold; cursor: pointer; padding: 6px 18px; font-size: 12px; border-radius: 2px; }
 
-        .table-wrap { overflow-x: auto; background: #fff; border: 1px solid #8ba0b5; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
-        table.journal-grid { border-collapse: collapse; width: 100%; white-space: nowrap; }
-        table.journal-grid th, table.journal-grid td { border: 1px solid #b8cce4; text-align: center; padding: 0; }
+        /* Адаптивный скролл таблицы */
+        .table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff; border: 1px solid #8ba0b5; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        table.journal-grid { border-collapse: separate; border-spacing: 0; width: max-content; }
+        table.journal-grid th, table.journal-grid td { border-right: 1px solid #b8cce4; border-bottom: 1px solid #b8cce4; text-align: center; padding: 0; }
 
-        th.header-student { background: #dce6f1; width: 220px; min-width: 200px; text-align: left; padding: 6px 8px; font-weight: bold; }
+        /* Фиксированная колонка с учениками (липкая при скролле вправо) */
+        .col-sticky-student { 
+            position: sticky; 
+            left: 0; 
+            z-index: 10; 
+            background: #dce6f1; 
+            width: 140px; 
+            min-width: 140px; 
+            max-width: 160px; 
+            text-align: left; 
+            padding: 6px; 
+            border-right: 2px solid #8ba0b5 !important;
+            white-space: normal;
+            word-break: break-word;
+        }
+        tbody td.col-sticky-student { background: #fdfdfd; font-size: 11px; }
+        tr:hover td.col-sticky-student { background-color: #fce8b2; }
+
         th.header-month { background: #dce6f1; font-weight: bold; padding: 4px; font-size: 11px; }
         th.header-day { background: #edf2f8; font-weight: normal; font-size: 11px; height: 22px; width: 34px; min-width: 34px; }
-        th.header-check { background: #f2f6fa; height: 22px; }
-        th.header-stat { background: #dce6f1; width: 55px; min-width: 50px; font-size: 10px; font-weight: bold; }
+        th.header-check { background: #f2f6fa; height: 22px; width: 34px; min-width: 34px; }
+        th.header-stat { background: #dce6f1; width: 48px; min-width: 48px; font-size: 10px; font-weight: bold; padding: 2px; }
 
-        .check-btn { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; background: #1c609c; color: #fff; text-decoration: none; font-size: 10px; border-radius: 2px; font-weight: bold; }
-        .check-btn:hover { background: #0b3d68; }
+        .check-btn { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; background: #1c609c; color: #fff; text-decoration: none; font-size: 10px; border-radius: 2px; font-weight: bold; }
 
-        td.student-name { text-align: left; padding: 4px 8px; background: #fff; font-size: 11px; border-right: 1px solid #8ba0b5; }
-        
-        td.mark-cell { width: 34px; height: 26px; padding: 0; background: #fff; position: relative; }
-        input.mark-input { width: 100%; height: 25px; border: none; outline: none; background: transparent; text-align: center; font-size: 11px; font-weight: bold; color: #000; font-family: Tahoma, Arial, sans-serif; cursor: pointer; }
-        input.mark-input:focus { background: #fff9c4 !important; }
+        td.mark-cell { width: 34px; min-width: 34px; height: 26px; padding: 0; background: #fff; }
+        input.mark-input { width: 100%; height: 26px; border: none; outline: none; background: transparent; text-align: center; font-size: 11px; font-weight: bold; color: #000; font-family: Tahoma, Arial, sans-serif; cursor: pointer; }
 
-        tr:hover td.student-name { background-color: #fce8b2; }
+        tr:hover td.mark-cell { background-color: #fce8b2; }
         .col-highlight { background-color: #fff2cc !important; }
 
-        td.stat-cell { font-weight: bold; font-size: 11px; background: #f2f6fa; }
+        td.stat-cell { font-weight: bold; font-size: 11px; background: #f2f6fa; width: 48px; min-width: 48px; }
 
+        /* Всплывающий блок выбора оценки */
         #gradePickerMenu {
             display: none;
-            position: absolute;
+            position: fixed;
             background: #ffffff;
             border: 1px solid #7f9db9;
-            box-shadow: 2px 2px 8px rgba(0,0,0,0.25);
+            box-shadow: 2px 2px 12px rgba(0,0,0,0.3);
             z-index: 1000;
-            padding: 3px;
-            width: 110px;
+            padding: 4px;
+            width: 120px;
         }
         #gradePickerMenu .picker-title {
             background: #e2e8f0;
-            padding: 4px 6px;
-            font-size: 10px;
+            padding: 4px;
+            font-size: 11px;
             font-weight: bold;
             color: #333;
             text-align: center;
@@ -75,18 +95,18 @@
         #gradePickerMenu .picker-btn {
             display: block;
             width: 100%;
-            padding: 4px 0;
+            padding: 6px 0;
             margin: 2px 0;
             background: #f8fafc;
             border: 1px solid #cbd5e1;
             border-radius: 2px;
             text-align: center;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: bold;
             cursor: pointer;
             color: #1e293b;
         }
-        #gradePickerMenu .picker-btn:hover {
+        #gradePickerMenu .picker-btn:active, #gradePickerMenu .picker-btn:hover {
             background: #1c609c;
             color: #ffffff;
             border-color: #1c609c;
@@ -94,11 +114,6 @@
         #gradePickerMenu .picker-btn.btn-clear {
             background: #f1f5f9;
             color: #64748b;
-            font-weight: normal;
-        }
-        #gradePickerMenu .picker-btn.btn-clear:hover {
-            background: #ef4444;
-            color: #fff;
         }
 
         .flash-msg { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 6px 12px; margin-bottom: 10px; font-size: 12px; }
@@ -107,11 +122,11 @@
 <body>
 
 <div class="top-header">
-    <div class="logo-title">АСУ РСО &nbsp;|&nbsp; Классный журнал</div>
+    <div class="logo-title">АСУ РСО</div>
     <div class="user-block">
-        <span>Пользователь: <strong>{{ fio }}</strong></span>
+        <span>{{ fio }}</span>
         {% if role == 'admin' %}
-            <a href="/admin">Администрирование</a>
+            <a href="/admin">Админ</a>
             <a href="/schedule">Расписание</a>
         {% endif %}
         <a href="/diary">Дневник</a>
@@ -121,13 +136,13 @@
 
 <div class="nav-toolbar">
     <a href="/teacher" class="active">Журнал</a>
-    <a href="/report?class_id={{ selected_class }}&period_id={{ selected_period }}">Отчеты / Ведомость</a>
+    <a href="/report?class_id={{ selected_class }}&period_id={{ selected_period }}">Отчеты</a>
 </div>
 
 <div class="container">
     <div class="journal-title-bar">
-        <div class="journal-heading">Классный журнал</div>
-        <span style="color: #666; font-size: 11px;">Клик мышкой или тап открывает выбор оценки (поддерживаются двойные: <strong>5/4</strong>)</span>
+        <span class="journal-heading">Классный журнал</span>
+        <span class="journal-subtitle">Тап по ячейке выбирает оценку (двойные: 5/4)</span>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -142,7 +157,7 @@
         <div class="filter-group">
             <label>Класс:</label>
             <select name="class_id" required>
-                <option value="">Выберите класс...</option>
+                <option value="">Класс...</option>
                 {% for c in classes %}
                     <option value="{{ c.id }}" {% if selected_class == c.id %}selected{% endif %}>{{ c.name }}</option>
                 {% endfor %}
@@ -152,7 +167,7 @@
         <div class="filter-group">
             <label>Предмет:</label>
             <select name="subject_id" required>
-                <option value="">Выберите предмет...</option>
+                <option value="">Предмет...</option>
                 {% for s in subjects %}
                     <option value="{{ s.id }}" {% if selected_subject == s.id %}selected{% endif %}>{{ s.name }}</option>
                 {% endfor %}
@@ -162,7 +177,7 @@
         <div class="filter-group">
             <label>Период:</label>
             <select name="period_id" required>
-                <option value="">Выберите период...</option>
+                <option value="">Период...</option>
                 {% for p in periods %}
                     <option value="{{ p.id }}" {% if selected_period == p.id %}selected{% endif %}>{{ p.name }}</option>
                 {% endfor %}
@@ -183,12 +198,12 @@
                 <table class="journal-grid" id="journalTable">
                     <thead>
                         <tr>
-                            <th rowspan="3" class="header-student">Ученики</th>
+                            <th rowspan="3" class="col-sticky-student">Ученики</th>
                             {% for mg in month_groups %}
                                 <th colspan="{{ mg.count }}" class="header-month">{{ mg.name }}</th>
                             {% endfor %}
-                            <th rowspan="3" class="header-stat">Средняя оценка</th>
-                            <th rowspan="3" class="header-stat">Оценка за период</th>
+                            <th rowspan="3" class="header-stat">Ср. балл</th>
+                            <th rowspan="3" class="header-stat">Итог</th>
                         </tr>
                         <tr>
                             {% for les in lessons %}
@@ -200,7 +215,7 @@
                         <tr>
                             {% for les in lessons %}
                                 <th class="header-check" data-col="{{ loop.index0 }}">
-                                    <a href="/lesson/{{ les.id }}" class="check-btn" title="Выставить оценки / Карточка урока">✔</a>
+                                    <a href="/lesson/{{ les.id }}" class="check-btn" title="Выставить оценки">✔</a>
                                 </th>
                             {% endfor %}
                         </tr>
@@ -208,7 +223,7 @@
                     <tbody>
                         {% for st in students %}
                             <tr>
-                                <td class="student-name">{{ loop.index }}. {{ st.fio }}</td>
+                                <td class="col-sticky-student">{{ loop.index }}. {{ st.fio }}</td>
                                 {% for les in lessons %}
                                     <td class="mark-cell" data-col="{{ loop.index0 }}">
                                         <input type="text" 
@@ -227,7 +242,7 @@
                 </table>
             </div>
 
-            <div style="margin-top: 12px;">
+            <div style="margin-top: 10px;">
                 <button type="submit" class="btn-save">Сохранить журнал</button>
             </div>
         </form>
@@ -235,7 +250,7 @@
 </div>
 
 <div id="gradePickerMenu">
-    <div class="picker-title">Выберите оценку</div>
+    <div class="picker-title">Оценка</div>
     <button type="button" class="picker-btn" onclick="applyPickerGrade('5')">5</button>
     <button type="button" class="picker-btn" onclick="applyPickerGrade('4')">4</button>
     <button type="button" class="picker-btn" onclick="applyPickerGrade('3')">3</button>
@@ -248,12 +263,9 @@
 <script>
     let activeInput = null;
     const picker = document.getElementById('gradePickerMenu');
-
-    // Проверяем, является ли устройство сенсорным экраном (смартфон/планшет)
     const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || ('ontouchstart' in window);
 
     document.querySelectorAll('.mark-input').forEach(input => {
-        // На сенсорных устройствах запрещаем клавиатуру
         if (isTouchDevice) {
             input.setAttribute('inputmode', 'none');
             input.setAttribute('readonly', 'readonly');
@@ -268,8 +280,19 @@
             }
 
             const rect = this.getBoundingClientRect();
-            picker.style.top = (rect.bottom + window.scrollY + 2) + 'px';
-            picker.style.left = (rect.left + window.scrollX) + 'px';
+            let topPos = rect.bottom + 2;
+            let leftPos = rect.left;
+
+            // Корректировка позиционирования меню у края экрана
+            if (leftPos + 120 > window.innerWidth) {
+                leftPos = window.innerWidth - 130;
+            }
+            if (topPos + 220 > window.innerHeight) {
+                topPos = rect.top - 210;
+            }
+
+            picker.style.top = topPos + 'px';
+            picker.style.left = leftPos + 'px';
             picker.style.display = 'block';
 
             highlightCol(this.parentElement.getAttribute('data-col'));
@@ -290,7 +313,6 @@
         } else if (val === '.') {
             activeInput.value = '.';
         } else {
-            // Если уже есть оценка, при следующем выборе подставляется слеш: 5/4
             if (current && !current.includes('/') && current !== '.') {
                 activeInput.value = current + '/' + val;
             } else {
