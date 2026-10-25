@@ -7,57 +7,102 @@
         * { box-sizing: border-box; }
         body { font-family: Tahoma, Arial, sans-serif; font-size: 11px; margin: 0; background: #e9edf2; color: #333; }
         
-        /* Верхняя панель АСУ РСО */
         .top-header { background: #1c609c; color: white; padding: 6px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f4370; }
-        .logo-title { font-size: 13px; font-weight: bold; letter-spacing: 0.5px; }
+        .logo-title { font-size: 13px; font-weight: bold; }
         .user-block a { color: #d0e4f7; text-decoration: none; font-size: 11px; margin-left: 10px; }
         .user-block a:hover { text-decoration: underline; }
 
-        /* Вторая строка навигации */
         .nav-toolbar { background: #3b7bb5; padding: 4px 15px; display: flex; gap: 12px; }
         .nav-toolbar a { color: #ffffff; text-decoration: none; font-size: 11px; padding: 3px 6px; }
         .nav-toolbar a.active { background: #1c609c; font-weight: bold; border-radius: 2px; }
 
-        .container { padding: 10px 15px; }
-
+        .container { padding: 10px 15px; position: relative; }
         .journal-title-bar { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; }
         .journal-heading { font-size: 16px; font-weight: bold; color: #1c609c; }
-        .quick-actions a { color: #1c609c; text-decoration: none; font-weight: bold; font-size: 11px; margin-left: 15px; }
 
-        /* Блок фильтров */
         .filter-panel { background: #e2e8f0; border: 1px solid #b8cce4; padding: 8px 12px; display: flex; gap: 15px; align-items: center; border-radius: 3px; margin-bottom: 12px; }
         .filter-group { display: flex; align-items: center; gap: 6px; }
         .filter-group label { font-weight: bold; font-size: 11px; color: #333; }
         select, button { font-size: 11px; padding: 2px 5px; border: 1px solid #7f9db9; background: #fff; }
-        button.btn-load { background: #28a745; color: white; border: 1px solid #1e7e34; font-weight: bold; cursor: pointer; padding: 3px 12px; border-radius: 2px; }
-        button.btn-save { background: #007bff; color: white; border: 1px solid #0056b3; font-weight: bold; cursor: pointer; padding: 5px 15px; font-size: 12px; border-radius: 2px; }
+        button.btn-load { background: #28a745; color: white; border: 1px solid #1e7e34; font-weight: bold; cursor: pointer; padding: 3px 12px; }
+        button.btn-save { background: #007bff; color: white; border: 1px solid #0056b3; font-weight: bold; cursor: pointer; padding: 5px 18px; font-size: 12px; }
 
-        /* Таблица журнала АСУ РСО */
+        /* Таблица */
         .table-wrap { overflow-x: auto; background: #fff; border: 1px solid #8ba0b5; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
         table.journal-grid { border-collapse: collapse; width: 100%; white-space: nowrap; }
         table.journal-grid th, table.journal-grid td { border: 1px solid #b8cce4; text-align: center; padding: 0; }
 
-        /* Шапка таблицы */
         th.header-student { background: #dce6f1; width: 220px; min-width: 200px; text-align: left; padding: 6px 8px; font-weight: bold; }
         th.header-month { background: #dce6f1; font-weight: bold; padding: 4px; font-size: 11px; }
         th.header-day { background: #edf2f8; font-weight: normal; font-size: 11px; height: 22px; width: 34px; min-width: 34px; }
         th.header-check { background: #f2f6fa; height: 22px; }
         th.header-stat { background: #dce6f1; width: 55px; min-width: 50px; font-size: 10px; font-weight: bold; }
 
-        /* Синяя кнопка-галочка в заголовке урока */
         .check-btn { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; background: #1c609c; color: #fff; text-decoration: none; font-size: 10px; border-radius: 2px; font-weight: bold; }
         .check-btn:hover { background: #0b3d68; }
 
-        /* Строки учеников */
         td.student-name { text-align: left; padding: 4px 8px; background: #fff; font-size: 11px; border-right: 1px solid #8ba0b5; }
-        tr:hover td.student-name, tr:hover td.mark-cell { background-color: #eaf2fa; }
+        
+        td.mark-cell { width: 34px; height: 26px; padding: 0; background: #fff; position: relative; }
+        input.mark-input { width: 100%; height: 25px; border: none; outline: none; background: transparent; text-align: center; font-size: 11px; font-weight: bold; color: #000; font-family: Tahoma, Arial, sans-serif; cursor: pointer; }
+        input.mark-input:focus { background: #fff9c4 !important; }
 
-        /* Единое сплошное поле ввода в ячейке журнала */
-        td.mark-cell { width: 34px; height: 26px; padding: 0; background: #fff; }
-        input.mark-input { width: 100%; height: 25px; border: none; outline: none; background: transparent; text-align: center; font-size: 11px; font-weight: bold; color: #000; font-family: Tahoma, Arial, sans-serif; cursor: text; }
-        input.mark-input:focus { background: #fffde7; border: 1px solid #0056b3; }
+        /* Подсветка активной строки и столбца */
+        tr:hover td.student-name { background-color: #fce8b2; }
+        .col-highlight { background-color: #fff2cc !important; }
+        .cell-highlight { background-color: #ffeb3b !important; }
 
         td.stat-cell { font-weight: bold; font-size: 11px; background: #f2f6fa; }
+
+        /* Всплывающее меню "Выберите оценку" (как на Фото 1) */
+        #gradePickerMenu {
+            display: none;
+            position: absolute;
+            background: #ffffff;
+            border: 1px solid #7f9db9;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.25);
+            z-index: 1000;
+            padding: 3px;
+            width: 110px;
+        }
+        #gradePickerMenu .picker-title {
+            background: #e2e8f0;
+            padding: 4px 6px;
+            font-size: 10px;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+            border-bottom: 1px solid #cbd5e1;
+            margin-bottom: 3px;
+        }
+        #gradePickerMenu .picker-btn {
+            display: block;
+            width: 100%;
+            padding: 4px 0;
+            margin: 2px 0;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 2px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #1e293b;
+        }
+        #gradePickerMenu .picker-btn:hover {
+            background: #1c609c;
+            color: #ffffff;
+            border-color: #1c609c;
+        }
+        #gradePickerMenu .picker-btn.btn-clear {
+            background: #f1f5f9;
+            color: #64748b;
+            font-weight: normal;
+        }
+        #gradePickerMenu .picker-btn.btn-clear:hover {
+            background: #ef4444;
+            color: #fff;
+        }
 
         .flash-msg { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 6px 12px; margin-bottom: 10px; font-size: 12px; }
     </style>
@@ -85,9 +130,7 @@
 <div class="container">
     <div class="journal-title-bar">
         <div class="journal-heading">Классный журнал</div>
-        <div class="quick-actions">
-            <span style="color: #666; font-size: 11px;">(Двойная оценка пишется через слеш: <strong>5/4</strong> или <strong>5/2</strong>)</span>
-        </div>
+        <span style="color: #666; font-size: 11px;">Клик мышкой открывает выбор оценки, либо вводите с клавиатуры (например, <strong>5/4</strong>)</span>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -133,16 +176,15 @@
     </form>
 
     {% if selected_class and selected_subject and selected_period %}
-        <form method="POST" action="/teacher">
+        <form method="POST" action="/teacher" id="journalForm">
             <input type="hidden" name="action" value="save_journal">
             <input type="hidden" name="class_id" value="{{ selected_class }}">
             <input type="hidden" name="subject_id" value="{{ selected_subject }}">
             <input type="hidden" name="period_id" value="{{ selected_period }}">
 
             <div class="table-wrap">
-                <table class="journal-grid">
+                <table class="journal-grid" id="journalTable">
                     <thead>
-                        <!-- Строка 1: Месяцы -->
                         <tr>
                             <th rowspan="3" class="header-student">Ученики</th>
                             {% for mg in month_groups %}
@@ -151,21 +193,17 @@
                             <th rowspan="3" class="header-stat">Средняя оценка</th>
                             <th rowspan="3" class="header-stat">Оценка за период</th>
                         </tr>
-
-                        <!-- Строка 2: Дни месяца -->
                         <tr>
                             {% for les in lessons %}
-                                <th class="header-day" title="{{ les.lesson_date }} ({{ les.lesson_number }}-й урок)">
+                                <th class="header-day" data-col="{{ loop.index0 }}" title="{{ les.lesson_date }} ({{ les.lesson_number }}-й урок)">
                                     {{ les.day_num }}
                                 </th>
                             {% endfor %}
                         </tr>
-
-                        <!-- Строка 3: Синие кнопки-галочки для открытия карточки урока -->
                         <tr>
                             {% for les in lessons %}
-                                <th class="header-check">
-                                    <a href="/lesson/{{ les.id }}" class="check-btn" title="Открыть тему, ДЗ и карточку урока">✔</a>
+                                <th class="header-check" data-col="{{ loop.index0 }}">
+                                    <a href="/lesson/{{ les.id }}" class="check-btn" title="Выставить оценки / Карточка урока">✔</a>
                                 </th>
                             {% endfor %}
                         </tr>
@@ -175,14 +213,13 @@
                             <tr>
                                 <td class="student-name">{{ loop.index }}. {{ st.fio }}</td>
                                 {% for les in lessons %}
-                                    <td class="mark-cell">
+                                    <td class="mark-cell" data-col="{{ loop.index0 }}">
                                         <input type="text" 
                                                name="cell_{{ st.id }}_{{ les.id }}" 
                                                class="mark-input" 
                                                value="{{ cell_values.get((st.id, les.id), '') }}" 
                                                autocomplete="off"
-                                               maxlength="5"
-                                               placeholder="">
+                                               maxlength="7">
                                     </td>
                                 {% endfor %}
                                 <td class="stat-cell">{{ student_stats[st.id].avg }}</td>
@@ -193,12 +230,85 @@
                 </table>
             </div>
 
-            <div style="margin-top: 12px; text-align: left;">
+            <div style="margin-top: 12px;">
                 <button type="submit" class="btn-save">Сохранить журнал</button>
             </div>
         </form>
     {% endif %}
 </div>
 
+<!-- Всплывающий блок выбора оценки (Фото 1) -->
+<div id="gradePickerMenu">
+    <div class="picker-title">Выберите оценку</div>
+    <button type="button" class="picker-btn" onclick="applyPickerGrade('5')">5</button>
+    <button type="button" class="picker-btn" onclick="applyPickerGrade('4')">4</button>
+    <button type="button" class="picker-btn" onclick="applyPickerGrade('3')">3</button>
+    <button type="button" class="picker-btn" onclick="applyPickerGrade('2')">2</button>
+    <button type="button" class="picker-btn" onclick="applyPickerGrade('Н')">Н</button>
+    <button type="button" class="picker-btn" onclick="applyPickerGrade('.')">Точка</button>
+    <button type="button" class="picker-btn btn-clear" onclick="applyPickerGrade('')">Очистить</button>
+</div>
+
+<script>
+    let activeInput = null;
+    const picker = document.getElementById('gradePickerMenu');
+
+    // Клик по ячейке: открываем всплывающее меню
+    document.querySelectorAll('.mark-input').forEach(input => {
+        input.addEventListener('click', function(e) {
+            e.stopPropagation();
+            activeInput = this;
+            const rect = this.getBoundingClientRect();
+            
+            // Позиционируем меню рядом с ячейкой
+            picker.style.top = (rect.bottom + window.scrollY + 2) + 'px';
+            picker.style.left = (rect.left + window.scrollX) + 'px';
+            picker.style.display = 'block';
+
+            highlightCol(this.parentElement.getAttribute('data-col'));
+        });
+
+        input.addEventListener('focus', function() {
+            activeInput = this;
+            highlightCol(this.parentElement.getAttribute('data-col'));
+        });
+    });
+
+    function applyPickerGrade(val) {
+        if (!activeInput) return;
+        
+        let current = activeInput.value.trim();
+        if (val === '') {
+            activeInput.value = '';
+        } else if (val === '.') {
+            activeInput.value = '.';
+        } else {
+            // Если уже есть оценка, даём возможность сформировать двойную (5/4)
+            if (current && !current.includes('/') && current !== '.') {
+                activeInput.value = current + '/' + val;
+            } else {
+                activeInput.value = val;
+            }
+        }
+        picker.style.display = 'none';
+        activeInput.focus();
+    }
+
+    // Подсветка столбца урока
+    function highlightCol(colIdx) {
+        document.querySelectorAll('.col-highlight').forEach(el => el.classList.remove('col-highlight'));
+        if (colIdx !== null) {
+            document.querySelectorAll(`[data-col="${colIdx}"]`).forEach(el => el.classList.add('col-highlight'));
+        }
+    }
+
+    // Закрытие всплывающего меню по клику в любое другое место
+    document.addEventListener('click', function(e) {
+        if (!picker.contains(e.target)) {
+            picker.style.display = 'none';
+            document.querySelectorAll('.col-highlight').forEach(el => el.classList.remove('col-highlight'));
+        }
+    });
+</script>
 </body>
 </html>
