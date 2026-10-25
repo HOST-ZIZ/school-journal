@@ -452,10 +452,17 @@ def delete_lesson_route(lesson_id):
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT class_id, subject_id, parent_id FROM lessons WHERE id = %s", (lesson_id,))
+    cur.execute("SELECT class_id, subject_id, lesson_date, parent_id FROM lessons WHERE id = %s", (lesson_id,))
     les = cur.fetchone()
 
+    period_id = request.form.get("period_id", type=int)
+
     if les:
+        if not period_id:
+            cur.execute("SELECT id FROM periods WHERE %s BETWEEN start_date AND end_date LIMIT 1", (les["lesson_date"],))
+            p_row = cur.fetchone()
+            period_id = p_row["id"] if p_row else None
+
         cur.execute("DELETE FROM grades WHERE lesson_id = %s", (lesson_id,))
         cur.execute("DELETE FROM lessons WHERE id = %s", (lesson_id,))
         conn.commit()
@@ -466,9 +473,9 @@ def delete_lesson_route(lesson_id):
 
     redirect_to = request.form.get("redirect_to", "teacher")
     if redirect_to == "lesson" and les and les["parent_id"]:
-        return redirect(url_for("edit_lesson", lesson_id=les["parent_id"]))
+        return redirect(url_for("edit_lesson", lesson_id=les["parent_id"], period_id=period_id))
     elif les:
-        return redirect(url_for("teacher_panel", class_id=les["class_id"], subject_id=les["subject_id"]))
+        return redirect(url_for("teacher_panel", class_id=les["class_id"], subject_id=les["subject_id"], period_id=period_id))
     return redirect(url_for("teacher_panel"))
 
 # --- КАРТОЧКА УРОКА (ВЫСТАВИТЬ ОЦЕНКИ) ---
@@ -495,10 +502,24 @@ def edit_lesson(lesson_id):
 
     main_lesson_id = lesson["parent_id"] if lesson.get("parent_id") else lesson["id"]
 
+    # Определяем ID периода (четверти): из GET, POST или по дате урока
+    period_id = request.args.get("period_id", type=int)
+    if not period_id:
+        period_id = request.form.get("period_id", type=int)
+    if not period_id:
+        cur.execute("SELECT id FROM periods WHERE %s BETWEEN start_date AND end_date LIMIT 1", (lesson["lesson_date"],))
+        p_row = cur.fetchone()
+        if p_row:
+            period_id = p_row["id"]
+        else:
+            cur.execute("SELECT id FROM periods ORDER BY start_date ASC LIMIT 1")
+            first_p = cur.fetchone()
+            period_id = first_p["id"] if first_p else None
+
     if request.method == "POST":
         action = request.form.get("action")
         
-        # 1. Добавление проверочной колонки
+        # 1. Создание проверочной колонки
         if action == "add_work_column":
             work_type = request.form.get("work_type", "control")
             work_weight = request.form.get("work_weight", 1, type=int)
@@ -512,7 +533,7 @@ def edit_lesson(lesson_id):
             flash(f"Колонка «{work_title}» создана!", "success")
             cur.close()
             conn.close()
-            return redirect(url_for("edit_lesson", lesson_id=main_lesson_id))
+            return redirect(url_for("edit_lesson", lesson_id=main_lesson_id, period_id=period_id))
 
         # 2. Сохранение оценок
         elif action in ["save_all", "save_and_return"]:
@@ -582,11 +603,11 @@ def edit_lesson(lesson_id):
             if action == "save_and_return":
                 cur.close()
                 conn.close()
-                return redirect(url_for("teacher_panel", class_id=lesson["class_id"], subject_id=lesson["subject_id"]))
+                return redirect(url_for("teacher_panel", class_id=lesson["class_id"], subject_id=lesson["subject_id"], period_id=period_id))
 
             cur.close()
             conn.close()
-            return redirect(url_for("edit_lesson", lesson_id=main_lesson_id))
+            return redirect(url_for("edit_lesson", lesson_id=main_lesson_id, period_id=period_id))
 
     cur.execute("""
         SELECT * FROM lessons 
@@ -616,7 +637,8 @@ def edit_lesson(lesson_id):
         lesson=lesson,
         extra_works=extra_works,
         students=students,
-        lesson_grades=lesson_grades
+        lesson_grades=lesson_grades,
+        period_id=period_id
     )
 
 # --- ЭЛЕКТРОННЫЙ ДНЕВНИК УЧЕНИКА ---
