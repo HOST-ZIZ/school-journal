@@ -36,12 +36,10 @@
         .homework-title { font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; }
         .homework-block textarea { width: 100%; height: 75px; padding: 6px; font-family: Tahoma, Arial, sans-serif; font-size: 11px; border: 1px solid #b8cce4; border-radius: 2px; resize: vertical; }
 
-        /* Панель добавления проверочной работы */
         .add-work-panel { background: #f0f4f9; border: 1px dashed #7f9db9; padding: 6px 12px; border-radius: 3px; margin-bottom: 12px; display: inline-flex; align-items: center; gap: 10px; }
         .add-work-panel select, .add-work-panel button { padding: 3px 6px; font-size: 11px; border: 1px solid #7f9db9; }
         .btn-add-col { background: #28a745; color: #fff; border: 1px solid #1e7e34; font-weight: bold; cursor: pointer; border-radius: 2px; }
 
-        /* Таблица страницы */
         .table-wrap { display: inline-block; background: #fff; border: 1px solid #8ba0b5; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-width: 100%; overflow-x: auto; }
         table.grades-table { border-collapse: collapse; border-spacing: 0; }
         table.grades-table th, table.grades-table td { border: 1px solid #b8cce4; padding: 0; font-size: 11px; text-align: center; }
@@ -55,7 +53,6 @@
 
         td.cell-student { text-align: left; background: #fff; padding: 4px 8px; font-size: 11px; }
 
-        /* СТРОКА ДЛЯ ОЦЕНКИ БЕЗ ВНУТРЕННИХ КВАДРАТОВ И РАМОК */
         td.cell-mark { 
             background: #ffffff; 
             padding: 0 !important; 
@@ -80,7 +77,6 @@
             display: block;
         }
 
-        /* Мягкая подсветка активной строки при клике */
         input.asu-row-input:focus {
             background: #fffde7 !important;
         }
@@ -89,7 +85,6 @@
             background-color: #f7fafc;
         }
 
-        /* Кнопка удаления колонки в шапке */
         .btn-del-header {
             display: inline-block;
             background: #dc3545;
@@ -116,18 +111,18 @@
     <div class="logo-title">АСУ РСО &nbsp;|&nbsp; Классный журнал</div>
     <div class="user-block">
         <span>Пользователь: <strong>{{ fio }}</strong></span>
-        <a href="/teacher">В журнал</a>
+        <a href="/teacher?class_id={{ lesson.class_id }}&subject_id={{ lesson.subject_id }}&period_id={{ period_id }}">В журнал</a>
         <a href="/logout">Выход</a>
     </div>
 </div>
 
 <div class="nav-toolbar">
-    <a href="/teacher">← Вернуться к журналу</a>
+    <a href="/teacher?class_id={{ lesson.class_id }}&subject_id={{ lesson.subject_id }}&period_id={{ period_id }}">← Вернуться к журналу</a>
 </div>
 
 <div class="page-container">
     <div class="back-title">
-        <a href="/teacher?class_id={{ lesson.class_id }}&subject_id={{ lesson.subject_id }}">←</a>
+        <a href="/teacher?class_id={{ lesson.class_id }}&subject_id={{ lesson.subject_id }}&period_id={{ period_id }}">←</a>
         <span>Классный журнал / Выставить оценки</span>
     </div>
 
@@ -139,9 +134,10 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Панель добавления проверочной работы -->
+    <!-- Форма создания дополнительного столбика с сохранением period_id -->
     <form method="POST" action="/lesson/{{ lesson.id }}" class="add-work-panel">
         <input type="hidden" name="action" value="add_work_column">
+        <input type="hidden" name="period_id" value="{{ period_id }}">
         <strong>+ Добавить колонку:</strong>
         <select name="work_type">
             <option value="control">Контрольная (К)</option>
@@ -159,6 +155,8 @@
     </form>
 
     <form method="POST" action="/lesson/{{ lesson.id }}" id="lessonCardForm">
+        <input type="hidden" name="period_id" value="{{ period_id }}">
+        
         <div class="action-bar">
             <button type="submit" name="action" value="save_all" class="btn-action primary">💾 Сохранить</button>
             <button type="submit" name="action" value="save_and_return" class="btn-action">💾 Сохранить и вернуться</button>
@@ -203,7 +201,6 @@
             </div>
         </div>
 
-        <!-- ТАБЛИЦА: СТРОЧКИ БЕЗ ВНУТРЕННИХ КВАДРАТИКОВ -->
         <div class="table-wrap">
             <table class="grades-table">
                 <thead>
@@ -235,7 +232,6 @@
                         <tr>
                             <td class="cell-student">{{ loop.index }}. {{ st.fio }}</td>
 
-                            <!-- 1. Классная работа (чистая строчка ячейки) -->
                             <td class="cell-mark">
                                 <input type="text" 
                                        name="class_grade_{{ st.id }}" 
@@ -246,7 +242,6 @@
                                        autocomplete="off">
                             </td>
 
-                            <!-- 2. Домашняя работа (чистая строчка ячейки) -->
                             <td class="cell-mark">
                                 <input type="text" 
                                        name="hw_grade_{{ st.id }}" 
@@ -257,7 +252,6 @@
                                        autocomplete="off">
                             </td>
 
-                            <!-- 3. Дополнительные проверочные работы -->
                             {% for w in extra_works %}
                                 <td class="cell-mark">
                                     <input type="text" 
@@ -270,7 +264,6 @@
                                 </td>
                             {% endfor %}
 
-                            <!-- 4. Посещаемость -->
                             <td class="cell-attend">
                                 {% set cur_att = lesson_grades.get((st.id, lesson.id, 'class'), '') %}
                                 <select name="attend_{{ st.id }}">
@@ -288,13 +281,12 @@
     </form>
 </div>
 
-<!-- Скрытая форма для удаления колонки -->
 <form id="deleteColForm" method="POST" action="" style="display: none;">
     <input type="hidden" name="redirect_to" value="lesson">
+    <input type="hidden" name="period_id" value="{{ period_id }}">
 </form>
 
 <script>
-    // Автопереход вниз при вводе оценки
     document.querySelectorAll('.asu-row-input').forEach(input => {
         input.addEventListener('input', function() {
             let val = this.value.trim().toUpperCase();
