@@ -14,46 +14,80 @@
         .nav-toolbar { background: #3b7bb5; padding: 4px 15px; display: flex; gap: 12px; }
         .nav-toolbar a { color: #ffffff; text-decoration: none; font-size: 11px; }
 
-        .page-container { padding: 12px 18px; max-width: 1200px; margin: 0 auto; }
+        .page-container { padding: 12px 18px; max-width: 1250px; margin: 0 auto; }
         .back-title { font-size: 14px; font-weight: bold; color: #1c609c; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
         .back-title a { color: #1c609c; text-decoration: none; }
 
-        /* Верхние кнопки управления (Фото 2) */
-        .action-bar { display: flex; gap: 8px; margin-bottom: 15px; }
-        .btn-action { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: bold; padding: 4px 12px; border: 1px solid #7f9db9; background: #eef3f8; color: #1e3a56; cursor: pointer; border-radius: 2px; }
+        .action-bar { display: flex; gap: 8px; margin-bottom: 15px; align-items: center; }
+        .btn-action { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: bold; padding: 5px 14px; border: 1px solid #7f9db9; background: #eef3f8; color: #1e3a56; cursor: pointer; border-radius: 2px; }
         .btn-action:hover { background: #dce7f3; }
         .btn-action.primary { background: #3b7bb5; color: white; border-color: #1c609c; }
         .btn-action.primary:hover { background: #1c609c; }
 
-        /* Сетка формы параметров и задания */
-        .info-homework-grid { display: flex; gap: 25px; margin-bottom: 20px; flex-wrap: wrap; }
+        .info-homework-grid { display: flex; gap: 20px; margin-bottom: 15px; flex-wrap: wrap; }
         .info-block { flex: 1; min-width: 320px; }
-        .info-row { display: flex; align-items: center; margin-bottom: 8px; }
+        .info-row { display: flex; align-items: center; margin-bottom: 7px; }
         .info-label { width: 110px; font-weight: bold; color: #333; }
         .info-field { flex: 1; }
-        .info-field input, .info-field select { width: 100%; max-width: 260px; padding: 4px 6px; font-size: 11px; border: 1px solid #b8cce4; background: #eaf1f8; border-radius: 2px; }
+        .info-field input { width: 100%; max-width: 270px; padding: 4px 6px; font-size: 11px; border: 1px solid #b8cce4; background: #eaf1f8; border-radius: 2px; }
 
         .homework-block { flex: 1; min-width: 350px; }
-        .homework-title { font-size: 12px; font-weight: bold; color: #333; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .homework-title { font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; }
         .homework-block textarea { width: 100%; height: 75px; padding: 6px; font-family: Tahoma, Arial, sans-serif; font-size: 11px; border: 1px solid #b8cce4; border-radius: 2px; resize: vertical; }
 
-        /* Таблица выставления оценок (Фото 2) */
-        .table-wrap { background: #fff; border: 1px solid #8ba0b5; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        /* Панель добавления самостоятельной или контрольной работы */
+        .add-work-panel { background: #eef3f8; border: 1px dashed #7f9db9; padding: 8px 12px; border-radius: 3px; margin-bottom: 15px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .add-work-panel span { font-weight: bold; color: #1c609c; }
+        .add-work-panel select, .add-work-panel button { padding: 4px 8px; font-size: 11px; border: 1px solid #7f9db9; border-radius: 2px; }
+        .btn-add-col { background: #28a745; color: #fff; border: 1px solid #1e7e34; font-weight: bold; cursor: pointer; }
+
+        /* Таблица выставления оценок */
+        .table-wrap { background: #fff; border: 1px solid #8ba0b5; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow-x: auto; }
         table.grades-table { border-collapse: collapse; width: 100%; }
-        table.grades-table th, table.grades-table td { border: 1px solid #b8cce4; text-align: left; padding: 4px 8px; font-size: 11px; }
+        table.grades-table th, table.grades-table td { border: 1px solid #b8cce4; padding: 4px 6px; font-size: 11px; text-align: center; }
 
-        th.col-students { background: #4d88be; color: white; width: 260px; font-weight: bold; }
-        th.col-hw { background: #4d88be; color: white; text-align: center; width: 150px; font-weight: bold; }
-        th.col-tasks { background: #4d88be; color: white; text-align: center; width: 150px; font-weight: bold; }
-        th.col-attend { background: #4d88be; color: white; text-align: center; width: 130px; font-weight: bold; }
+        th.col-attend { background: #4d88be; color: white; width: 110px; font-weight: bold; }
+        th.col-students { background: #4d88be; color: white; text-align: left; width: 220px; font-weight: bold; }
+        th.col-class { background: #4d88be; color: white; width: 110px; font-weight: bold; }
+        th.col-hw { background: #4d88be; color: white; width: 110px; font-weight: bold; }
+        th.col-extra { background: #356b9c; color: white; width: 130px; font-weight: bold; position: relative; }
 
-        .sub-header { background: #6ba0cf; color: white; font-weight: normal; font-size: 10px; text-align: center; padding: 3px; }
+        .sub-header { background: #6ba0cf; color: white; font-weight: normal; font-size: 10px; padding: 3px; }
 
-        td.cell-mark { text-align: center; }
-        td.cell-mark input { width: 50px; text-align: center; padding: 3px; font-size: 11px; font-weight: bold; border: 1px solid #b8cce4; }
-        td.cell-mark input:focus { background: #fffde7; border-color: #0056b3; }
-
+        td.cell-student { text-align: left; background: #fff; font-weight: bold; }
+        td.cell-attend { background: #fdfdfd; }
         td.cell-attend select { width: 100%; font-size: 11px; padding: 2px; border: 1px solid #b8cce4; background: #fff; }
+
+        /* Аккуратные квадратные поля оценок (как на Фото 9) */
+        td.cell-mark { background: #fff; }
+        td.cell-mark input.auto-down-input { 
+            width: 32px; 
+            height: 28px; 
+            text-align: center; 
+            font-size: 12px; 
+            font-weight: bold; 
+            border: 1px solid #b8cce4; 
+            border-radius: 2px; 
+            outline: none; 
+            background: #fafafa;
+        }
+        td.cell-mark input.auto-down-input:focus { background: #fffde7; border-color: #0056b3; box-shadow: 0 0 4px rgba(0,86,179,0.3); }
+
+        .btn-del-col {
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 9px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 16px;
+            padding: 0;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
 
         .flash-msg { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 6px 12px; margin-bottom: 12px; font-size: 12px; }
     </style>
@@ -87,14 +121,32 @@
         {% endif %}
     {% endwith %}
 
-    <form method="POST" action="/lesson/{{ lesson.id }}">
-        <!-- Кнопки Сохранить (Фото 2) -->
+    <!-- Форма создания дополнительного столбика КР / СР -->
+    <form method="POST" action="/lesson/{{ lesson.id }}" class="add-work-panel">
+        <input type="hidden" name="action" value="add_work_column">
+        <span>+ Добавить проверочную работу:</span>
+        <select name="work_type">
+            <option value="control">Контрольная работа (К)</option>
+            <option value="test">Самостоятельная работа (С)</option>
+        </select>
+        <span>Вес работы (балл):</span>
+        <select name="work_weight">
+            <option value="1">1 (обычный вес)</option>
+            <option value="2">2 (двойной вес)</option>
+            <option value="3" selected>3 (тройной вес)</option>
+            <option value="4">4 (вес 4)</option>
+            <option value="5">5 (вес 5)</option>
+        </select>
+        <button type="submit" class="btn-add-col">+ Создать столбик</button>
+    </form>
+
+    <!-- Основная форма оценок и темы урока -->
+    <form method="POST" action="/lesson/{{ lesson.id }}" id="lessonCardForm">
         <div class="action-bar">
             <button type="submit" name="action" value="save_all" class="btn-action primary">💾 Сохранить</button>
             <button type="submit" name="action" value="save_and_return" class="btn-action">💾 Сохранить и вернуться</button>
         </div>
 
-        <!-- Параметры урока и домашнее задание (Фото 2) -->
         <div class="info-homework-grid">
             <div class="info-block">
                 <div class="info-row">
@@ -129,58 +181,98 @@
             </div>
 
             <div class="homework-block">
-                <div class="homework-title">
-                    <span>➔ Добавить домашнее задание на следующее занятие</span>
-                </div>
-                <textarea name="homework" placeholder="Текст домашнего задания (параграф, номера, упражнения)...">{{ lesson.homework or '' }}</textarea>
+                <div class="homework-title">➔ Добавить домашнее задание на следующее занятие</div>
+                <textarea name="homework" placeholder="Текст домашнего задания...">{{ lesson.homework or '' }}</textarea>
             </div>
         </div>
 
-        <!-- Таблица выставления оценок ученикам (Фото 2) -->
         <div class="table-wrap">
-            <table class="grades-table">
+            <table class="grades-table" id="gradesTable">
                 <thead>
                     <tr>
-                        <th rowspan="2" class="col-students">Ученики</th>
-                        <th class="col-hw">Домашнее задание</th>
-                        <th class="col-tasks">Задания / Работа</th>
+                        <!-- 1. ПОСЕЩАЕМОСТЬ ПЕРЕНЕСЕНА В САМОЕ НАЧАЛО -->
                         <th rowspan="2" class="col-attend">Посещаемость</th>
+                        
+                        <!-- 2. УЧЕНИКИ -->
+                        <th rowspan="2" class="col-students">Ученики</th>
+                        
+                        <!-- 3. РАБОТА НА УРОКЕ -->
+                        <th class="col-class">Классная работа</th>
+                        
+                        <!-- 4. ДОМАШНЕЕ ЗАДАНИЕ -->
+                        <th class="col-hw">Домашнее задание</th>
+
+                        <!-- 5. ДОПОЛНИТЕЛЬНЫЕ СТОЛБИКИ (КР / СР) -->
+                        {% for w in extra_works %}
+                            <th class="col-extra">
+                                <span>{% if w.lesson_type == 'control' %}К (Контрольная){% else %}С (Самостоятельная){% endif %}</span>
+                                <br><small>вес: {{ w.weight }}</small>
+                                <button type="button" class="btn-del-col" title="Удалить этот столбик" onclick="deleteWorkColumn('{{ w.id }}')">✕</button>
+                            </th>
+                        {% endfor %}
                     </tr>
                     <tr>
+                        <th class="sub-header">Работа на уроке</th>
                         <th class="sub-header">Домашняя работа</th>
-                        <th class="sub-header">Классная работа</th>
+                        {% for w in extra_works %}
+                            <th class="sub-header">Оценка</th>
+                        {% endfor %}
                     </tr>
                 </thead>
                 <tbody>
                     {% for st in students %}
                         <tr>
-                            <td>{{ loop.index }}. {{ st.fio }}</td>
-                            <!-- Оценка за Домашнее задание -->
-                            <td class="cell-mark">
-                                <input type="text" 
-                                       name="hw_grade_{{ st.id }}" 
-                                       value="{{ lesson_grades.get((st.id, 'homework'), {}).get('val', '') }}" 
-                                       maxlength="2"
-                                       placeholder="-">
-                            </td>
-                            <!-- Оценка за работу на уроке / Задание -->
-                            <td class="cell-mark">
-                                <input type="text" 
-                                       name="class_grade_{{ st.id }}" 
-                                       value="{{ lesson_grades.get((st.id, 'class'), {}).get('val', '') }}" 
-                                       maxlength="2"
-                                       placeholder="-">
-                            </td>
-                            <!-- Посещаемость (Н, У, О) -->
+                            <!-- 1. Посещаемость -->
                             <td class="cell-attend">
-                                {% set cur_att = lesson_grades.get((st.id, 'class'), {}).get('val', '') %}
+                                {% set cur_att = lesson_grades.get((st.id, lesson.id, 'class'), '') %}
                                 <select name="attend_{{ st.id }}">
                                     <option value="">Присутствует</option>
                                     <option value="Н" {% if cur_att == 'Н' %}selected{% endif %}>Н (Не был)</option>
-                                    <option value="У" {% if cur_att == 'У' %}selected{% endif %}>У (Уважительная)</option>
-                                    <option value="О" {% if cur_att == 'О' %}selected{% endif %}>О (Опоздание)</option>
+                                    <option value="У" {% if cur_att == 'У' %}selected{% endif %}>У (Уваж.)</option>
+                                    <option value="О" {% if cur_att == 'О' %}selected{% endif %}>О (Опоздал)</option>
                                 </select>
                             </td>
+
+                            <!-- 2. Ученик -->
+                            <td class="cell-student">{{ loop.index }}. {{ st.fio }}</td>
+
+                            <!-- 3. Классная работа (автопереход вниз) -->
+                            <td class="cell-mark">
+                                <input type="text" 
+                                       name="class_grade_{{ st.id }}" 
+                                       class="auto-down-input col-group-class" 
+                                       data-col-class="col-group-class"
+                                       value="{{ lesson_grades.get((st.id, lesson.id, 'class'), '') }}" 
+                                       maxlength="2"
+                                       autocomplete="off"
+                                       placeholder="-">
+                            </td>
+
+                            <!-- 4. Домашнее задание (автопереход вниз) -->
+                            <td class="cell-mark">
+                                <input type="text" 
+                                       name="hw_grade_{{ st.id }}" 
+                                       class="auto-down-input col-group-hw" 
+                                       data-col-class="col-group-hw"
+                                       value="{{ lesson_grades.get((st.id, lesson.id, 'homework'), '') }}" 
+                                       maxlength="2"
+                                       autocomplete="off"
+                                       placeholder="-">
+                            </td>
+
+                            <!-- 5. Колонки КР и СР (автопереход вниз) -->
+                            {% for w in extra_works %}
+                                <td class="cell-mark">
+                                    <input type="text" 
+                                           name="work_grade_{{ w.id }}_{{ st.id }}" 
+                                           class="auto-down-input col-group-{{ w.id }}" 
+                                           data-col-class="col-group-{{ w.id }}"
+                                           value="{{ lesson_grades.get((st.id, w.id, 'class'), '') }}" 
+                                           maxlength="2"
+                                           autocomplete="off"
+                                           placeholder="-">
+                                </td>
+                            {% endfor %}
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -189,5 +281,60 @@
     </form>
 </div>
 
+<!-- Скрытая форма для удаления проверочной колонки -->
+<form id="deleteColForm" method="POST" action="/lesson/{{ lesson.id }}" style="display: none;">
+    <input type="hidden" name="action" value="delete_work_column">
+    <input type="hidden" name="del_lesson_id" id="delLessonIdInput">
+</form>
+
+<script>
+    // АВТОПЕРЕХОД ВНИЗ ПРИ ВВОДЕ ОЦЕНКИ
+    document.querySelectorAll('.auto-down-input').forEach(input => {
+        input.addEventListener('input', function() {
+            let val = this.value.trim().toUpperCase();
+            this.value = val;
+
+            // Если введено допустимое значение (оценка 2-5, Н, У, О или точка)
+            if (val.length >= 1) {
+                let colClass = this.getAttribute('data-col-class');
+                let inputsInSameCol = Array.from(document.querySelectorAll('.' + colClass));
+                let currentIndex = inputsInSameCol.indexOf(this);
+
+                // Переводим фокус на следующий инпут в том же столбце
+                if (currentIndex !== -1 && currentIndex + 1 < inputsInSameCol.length) {
+                    inputsInSameCol[currentIndex + 1].focus();
+                    inputsInSameCol[currentIndex + 1].select();
+                }
+            }
+        });
+
+        // Поддержка перехода стрелками вверх и вниз
+        input.addEventListener('keydown', function(e) {
+            let colClass = this.getAttribute('data-col-class');
+            let inputsInSameCol = Array.from(document.querySelectorAll('.' + colClass));
+            let currentIndex = inputsInSameCol.indexOf(this);
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (currentIndex + 1 < inputsInSameCol.length) {
+                    inputsInSameCol[currentIndex + 1].focus();
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (currentIndex - 1 >= 0) {
+                    inputsInSameCol[currentIndex - 1].focus();
+                }
+            }
+        });
+    });
+
+    // Функция удаления проверочного столбика
+    function deleteWorkColumn(colId) {
+        if (confirm("Вы уверены, что хотите удалить этот столбик работы и все выставленные в нём оценки?")) {
+            document.getElementById('delLessonIdInput').value = colId;
+            document.getElementById('deleteColForm').submit();
+        }
+    }
+</script>
 </body>
 </html>
