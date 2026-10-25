@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>АСУ РСО. Классный журнал</title>
     <style>
         * { box-sizing: border-box; }
@@ -27,7 +28,6 @@
         button.btn-load { background: #28a745; color: white; border: 1px solid #1e7e34; font-weight: bold; cursor: pointer; padding: 3px 12px; }
         button.btn-save { background: #007bff; color: white; border: 1px solid #0056b3; font-weight: bold; cursor: pointer; padding: 5px 18px; font-size: 12px; }
 
-        /* Таблица */
         .table-wrap { overflow-x: auto; background: #fff; border: 1px solid #8ba0b5; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
         table.journal-grid { border-collapse: collapse; width: 100%; white-space: nowrap; }
         table.journal-grid th, table.journal-grid td { border: 1px solid #b8cce4; text-align: center; padding: 0; }
@@ -47,14 +47,11 @@
         input.mark-input { width: 100%; height: 25px; border: none; outline: none; background: transparent; text-align: center; font-size: 11px; font-weight: bold; color: #000; font-family: Tahoma, Arial, sans-serif; cursor: pointer; }
         input.mark-input:focus { background: #fff9c4 !important; }
 
-        /* Подсветка активной строки и столбца */
         tr:hover td.student-name { background-color: #fce8b2; }
         .col-highlight { background-color: #fff2cc !important; }
-        .cell-highlight { background-color: #ffeb3b !important; }
 
         td.stat-cell { font-weight: bold; font-size: 11px; background: #f2f6fa; }
 
-        /* Всплывающее меню "Выберите оценку" (как на Фото 1) */
         #gradePickerMenu {
             display: none;
             position: absolute;
@@ -130,7 +127,7 @@
 <div class="container">
     <div class="journal-title-bar">
         <div class="journal-heading">Классный журнал</div>
-        <span style="color: #666; font-size: 11px;">Клик мышкой открывает выбор оценки, либо вводите с клавиатуры (например, <strong>5/4</strong>)</span>
+        <span style="color: #666; font-size: 11px;">Клик мышкой или тап открывает выбор оценки (поддерживаются двойные: <strong>5/4</strong>)</span>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -237,7 +234,6 @@
     {% endif %}
 </div>
 
-<!-- Всплывающий блок выбора оценки (Фото 1) -->
 <div id="gradePickerMenu">
     <div class="picker-title">Выберите оценку</div>
     <button type="button" class="picker-btn" onclick="applyPickerGrade('5')">5</button>
@@ -253,14 +249,25 @@
     let activeInput = null;
     const picker = document.getElementById('gradePickerMenu');
 
-    // Клик по ячейке: открываем всплывающее меню
+    // Проверяем, является ли устройство сенсорным экраном (смартфон/планшет)
+    const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || ('ontouchstart' in window);
+
     document.querySelectorAll('.mark-input').forEach(input => {
+        // На сенсорных устройствах запрещаем клавиатуру
+        if (isTouchDevice) {
+            input.setAttribute('inputmode', 'none');
+            input.setAttribute('readonly', 'readonly');
+        }
+
         input.addEventListener('click', function(e) {
             e.stopPropagation();
             activeInput = this;
-            const rect = this.getBoundingClientRect();
             
-            // Позиционируем меню рядом с ячейкой
+            if (isTouchDevice) {
+                this.blur();
+            }
+
+            const rect = this.getBoundingClientRect();
             picker.style.top = (rect.bottom + window.scrollY + 2) + 'px';
             picker.style.left = (rect.left + window.scrollX) + 'px';
             picker.style.display = 'block';
@@ -283,7 +290,7 @@
         } else if (val === '.') {
             activeInput.value = '.';
         } else {
-            // Если уже есть оценка, даём возможность сформировать двойную (5/4)
+            // Если уже есть оценка, при следующем выборе подставляется слеш: 5/4
             if (current && !current.includes('/') && current !== '.') {
                 activeInput.value = current + '/' + val;
             } else {
@@ -291,10 +298,12 @@
             }
         }
         picker.style.display = 'none';
-        activeInput.focus();
+        
+        if (!isTouchDevice) {
+            activeInput.focus();
+        }
     }
 
-    // Подсветка столбца урока
     function highlightCol(colIdx) {
         document.querySelectorAll('.col-highlight').forEach(el => el.classList.remove('col-highlight'));
         if (colIdx !== null) {
@@ -302,7 +311,6 @@
         }
     }
 
-    // Закрытие всплывающего меню по клику в любое другое место
     document.addEventListener('click', function(e) {
         if (!picker.contains(e.target)) {
             picker.style.display = 'none';
