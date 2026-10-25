@@ -2,121 +2,192 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Карточка урока — АСУ РСО</title>
+    <title>Классный журнал / Выставить оценки</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background: #f8fafc; color: #0f172a; padding: 20px; }
-        .container { max-width: 950px; margin: 0 auto; }
-        .alert { background: #dcfce7; color: #15803d; padding: 12px; border-radius: 6px; font-weight: bold; margin-bottom: 20px; }
-        .card { background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-        h2, h3 { color: #1e3a8a; margin-bottom: 15px; }
-        .form-group { margin-bottom: 14px; }
-        label { display: block; font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 5px; }
-        input[type="text"], textarea, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
-        textarea { height: 80px; resize: vertical; }
-        .btn { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
-        .btn:hover { background: #1d4ed8; }
-        .back-link { display: inline-block; margin-bottom: 15px; color: #2563eb; text-decoration: none; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
-        th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: center; }
-        th { background: #eff6ff; color: #1e3a8a; }
-        td.student-name { text-align: left; padding-left: 12px; font-weight: bold; }
-        .grade-in { width: 50px; height: 32px; text-align: center; font-weight: bold; font-size: 14px; border: 1px solid #94a3b8; border-radius: 4px; }
-        .comment-in { width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; }
+        * { box-sizing: border-box; }
+        body { font-family: Tahoma, Arial, sans-serif; font-size: 11px; margin: 0; background: #e9edf2; color: #333; }
+
+        .top-header { background: #1c609c; color: white; padding: 6px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f4370; }
+        .logo-title { font-size: 13px; font-weight: bold; }
+        .user-block a { color: #d0e4f7; text-decoration: none; font-size: 11px; margin-left: 10px; }
+
+        .nav-toolbar { background: #3b7bb5; padding: 4px 15px; display: flex; gap: 12px; }
+        .nav-toolbar a { color: #ffffff; text-decoration: none; font-size: 11px; }
+
+        .page-container { padding: 12px 18px; max-width: 1200px; margin: 0 auto; }
+        .back-title { font-size: 14px; font-weight: bold; color: #1c609c; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .back-title a { color: #1c609c; text-decoration: none; }
+
+        /* Верхние кнопки управления (Фото 2) */
+        .action-bar { display: flex; gap: 8px; margin-bottom: 15px; }
+        .btn-action { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: bold; padding: 4px 12px; border: 1px solid #7f9db9; background: #eef3f8; color: #1e3a56; cursor: pointer; border-radius: 2px; }
+        .btn-action:hover { background: #dce7f3; }
+        .btn-action.primary { background: #3b7bb5; color: white; border-color: #1c609c; }
+        .btn-action.primary:hover { background: #1c609c; }
+
+        /* Сетка формы параметров и задания */
+        .info-homework-grid { display: flex; gap: 25px; margin-bottom: 20px; flex-wrap: wrap; }
+        .info-block { flex: 1; min-width: 320px; }
+        .info-row { display: flex; align-items: center; margin-bottom: 8px; }
+        .info-label { width: 110px; font-weight: bold; color: #333; }
+        .info-field { flex: 1; }
+        .info-field input, .info-field select { width: 100%; max-width: 260px; padding: 4px 6px; font-size: 11px; border: 1px solid #b8cce4; background: #eaf1f8; border-radius: 2px; }
+
+        .homework-block { flex: 1; min-width: 350px; }
+        .homework-title { font-size: 12px; font-weight: bold; color: #333; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .homework-block textarea { width: 100%; height: 75px; padding: 6px; font-family: Tahoma, Arial, sans-serif; font-size: 11px; border: 1px solid #b8cce4; border-radius: 2px; resize: vertical; }
+
+        /* Таблица выставления оценок (Фото 2) */
+        .table-wrap { background: #fff; border: 1px solid #8ba0b5; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        table.grades-table { border-collapse: collapse; width: 100%; }
+        table.grades-table th, table.grades-table td { border: 1px solid #b8cce4; text-align: left; padding: 4px 8px; font-size: 11px; }
+
+        th.col-students { background: #4d88be; color: white; width: 260px; font-weight: bold; }
+        th.col-hw { background: #4d88be; color: white; text-align: center; width: 150px; font-weight: bold; }
+        th.col-tasks { background: #4d88be; color: white; text-align: center; width: 150px; font-weight: bold; }
+        th.col-attend { background: #4d88be; color: white; text-align: center; width: 130px; font-weight: bold; }
+
+        .sub-header { background: #6ba0cf; color: white; font-weight: normal; font-size: 10px; text-align: center; padding: 3px; }
+
+        td.cell-mark { text-align: center; }
+        td.cell-mark input { width: 50px; text-align: center; padding: 3px; font-size: 11px; font-weight: bold; border: 1px solid #b8cce4; }
+        td.cell-mark input:focus { background: #fffde7; border-color: #0056b3; }
+
+        td.cell-attend select { width: 100%; font-size: 11px; padding: 2px; border: 1px solid #b8cce4; background: #fff; }
+
+        .flash-msg { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 6px 12px; margin-bottom: 12px; font-size: 12px; }
     </style>
 </head>
 <body>
-<div class="container">
-    <a href="/teacher" class="back-link">← Вернуться в журнал</a>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for cat, msg in messages %}
-          <div class="alert">{{ msg }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+<div class="top-header">
+    <div class="logo-title">АСУ РСО &nbsp;|&nbsp; Классный журнал</div>
+    <div class="user-block">
+        <span>Пользователь: <strong>{{ fio }}</strong></span>
+        <a href="/teacher">В журнал</a>
+        <a href="/logout">Выход</a>
+    </div>
+</div>
 
-    <div class="card">
-        <h2>📅 Карточка урока: {{ lesson.lesson_date }}</h2>
-        <p style="color: #64748b; margin-bottom: 15px;">Класс: <b>{{ lesson.class_name }}</b> | Предмет: <b>{{ lesson.subject_name }}</b></p>
-        
-        <form method="POST">
-            <input type="hidden" name="action" value="update_info">
-            <div class="form-group">
-                <label>Тема урока</label>
-                <input type="text" name="topic" value="{{ lesson.topic or '' }}">
-            </div>
-            <div class="form-group">
-                <label>Домашнее задание</label>
-                <textarea name="homework">{{ lesson.homework or '' }}</textarea>
-            </div>
-            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
-                <input type="checkbox" id="is_held" name="is_held" style="width: 20px; height: 20px;" {% if lesson.is_held == 1 %}checked{% endif %}>
-                <label for="is_held" style="margin-bottom: 0; cursor: pointer; font-size: 14px;">Урок состоялся</label>
-            </div>
-            <button type="submit" class="btn">Сохранить тему и ДЗ</button>
-        </form>
+<div class="nav-toolbar">
+    <a href="/teacher">← Вернуться к журналу</a>
+</div>
+
+<div class="page-container">
+    <div class="back-title">
+        <a href="/teacher?class_id={{ lesson.class_id }}&subject_id={{ lesson.subject_id }}">←</a>
+        <span>Классный журнал / Выставить оценки</span>
     </div>
 
-    <!-- ОКНО РУСИЧКИ С ОЦЕНКАМИ И КОММЕНТАРИЯМИ -->
-    <div class="card">
-        <h3>⭐ Оценки, пропуски (Н, У, О) и комментарии</h3>
-        <form method="POST">
-            <input type="hidden" name="action" value="save_lesson_grades">
-            <table>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for cat, msg in messages %}
+                <div class="flash-msg">{{ msg }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="/lesson/{{ lesson.id }}">
+        <!-- Кнопки Сохранить (Фото 2) -->
+        <div class="action-bar">
+            <button type="submit" name="action" value="save_all" class="btn-action primary">💾 Сохранить</button>
+            <button type="submit" name="action" value="save_and_return" class="btn-action">💾 Сохранить и вернуться</button>
+        </div>
+
+        <!-- Параметры урока и домашнее задание (Фото 2) -->
+        <div class="info-homework-grid">
+            <div class="info-block">
+                <div class="info-row">
+                    <div class="info-label">Предмет</div>
+                    <div class="info-field">
+                        <input type="text" value="{{ lesson.class_name }} / {{ lesson.subject_name }}" readonly>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <div class="info-label">Дата урока</div>
+                    <div class="info-field">
+                        <input type="text" value="{{ lesson.lesson_date }} ({{ lesson.lesson_number }} урок)" readonly>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <div class="info-label">Тема урока</div>
+                    <div class="info-field">
+                        <input type="text" name="topic" value="{{ lesson.topic or '' }}" placeholder="Введите тему занятия...">
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <div class="info-label">Статус урока</div>
+                    <div class="info-field">
+                        <label style="font-size: 11px; cursor: pointer;">
+                            <input type="checkbox" name="is_held" {% if lesson.is_held == 1 %}checked{% endif %}> Урок проведен
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="homework-block">
+                <div class="homework-title">
+                    <span>➔ Добавить домашнее задание на следующее занятие</span>
+                </div>
+                <textarea name="homework" placeholder="Текст домашнего задания (параграф, номера, упражнения)...">{{ lesson.homework or '' }}</textarea>
+            </div>
+        </div>
+
+        <!-- Таблица выставления оценок ученикам (Фото 2) -->
+        <div class="table-wrap">
+            <table class="grades-table">
                 <thead>
                     <tr>
-                        <th style="width: 40px;">№</th>
-                        <th style="text-align: left; padding-left: 12px;">Ученик</th>
-                        <th style="width: 100px;">Урок</th>
-                        <th style="width: 180px;">Комментарий к уроку</th>
-                        <th style="width: 100px;">ДЗ</th>
-                        <th style="width: 180px;">Комментарий к ДЗ</th>
+                        <th rowspan="2" class="col-students">Ученики</th>
+                        <th class="col-hw">Домашнее задание</th>
+                        <th class="col-tasks">Задания / Работа</th>
+                        <th rowspan="2" class="col-attend">Посещаемость</th>
+                    </tr>
+                    <tr>
+                        <th class="sub-header">Домашняя работа</th>
+                        <th class="sub-header">Классная работа</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for st in students %}
-                    <tr>
-                        <td>{{ loop.index }}</td>
-                        <td class="student-name">{{ st.fio }}</td>
-                        <td>
-                            <input type="text" name="lesgrade_class_{{ st.id }}" value="{{ lesson_grades.get((st.id, 'class'), {}).get('val', '') }}" class="grade-in" maxlength="2" autocomplete="off" title="Урок / Н">
-                        </td>
-                        <td>
-                            <input type="text" name="comment_class_{{ st.id }}" value="{{ lesson_grades.get((st.id, 'class'), {}).get('comment', '') }}" class="comment-in" placeholder="Пометка...">
-                        </td>
-                        <td>
-                            <input type="text" name="lesgrade_homework_{{ st.id }}" value="{{ lesson_grades.get((st.id, 'homework'), {}).get('val', '') }}" class="grade-in" style="background: #f8fafc; border-style: dashed;" maxlength="2" autocomplete="off" title="ДЗ">
-                        </td>
-                        <td>
-                            <input type="text" name="comment_homework_{{ st.id }}" value="{{ lesson_grades.get((st.id, 'homework'), {}).get('comment', '') }}" class="comment-in" placeholder="Пометка...">
-                        </td>
-                    </tr>
+                        <tr>
+                            <td>{{ loop.index }}. {{ st.fio }}</td>
+                            <!-- Оценка за Домашнее задание -->
+                            <td class="cell-mark">
+                                <input type="text" 
+                                       name="hw_grade_{{ st.id }}" 
+                                       value="{{ lesson_grades.get((st.id, 'homework'), {}).get('val', '') }}" 
+                                       maxlength="2"
+                                       placeholder="-">
+                            </td>
+                            <!-- Оценка за работу на уроке / Задание -->
+                            <td class="cell-mark">
+                                <input type="text" 
+                                       name="class_grade_{{ st.id }}" 
+                                       value="{{ lesson_grades.get((st.id, 'class'), {}).get('val', '') }}" 
+                                       maxlength="2"
+                                       placeholder="-">
+                            </td>
+                            <!-- Посещаемость (Н, У, О) -->
+                            <td class="cell-attend">
+                                {% set cur_att = lesson_grades.get((st.id, 'class'), {}).get('val', '') %}
+                                <select name="attend_{{ st.id }}">
+                                    <option value="">Присутствует</option>
+                                    <option value="Н" {% if cur_att == 'Н' %}selected{% endif %}>Н (Не был)</option>
+                                    <option value="У" {% if cur_att == 'У' %}selected{% endif %}>У (Уважительная)</option>
+                                    <option value="О" {% if cur_att == 'О' %}selected{% endif %}>О (Опоздание)</option>
+                                </select>
+                            </td>
+                        </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            <div style="margin-top: 20px; text-align: right;">
-                <button type="submit" class="btn" style="background: #16a34a;">Сохранить данные за день</button>
-            </div>
-        </form>
-    </div>
-
-    <div class="card" style="background: #fef9c3; border-color: #fde047;">
-        <h3>⚡ Добавить колонку работы на весь класс</h3>
-        <form method="POST">
-            <input type="hidden" name="action" value="add_class_column">
-            <div class="form-group">
-                <label>Тип работы</label>
-                <select name="col_type" required>
-                    <option value="control">Контрольная работа (вес 3)</option>
-                    <option value="test">Самостоятельная работа (вес 2)</option>
-                </select>
-            </div>
-            <button type="submit" class="btn" style="background: #ca8a04;">+ Добавить колонку на весь класс</button>
-        </form>
-    </div>
-
+        </div>
+    </form>
 </div>
+
 </body>
 </html>
