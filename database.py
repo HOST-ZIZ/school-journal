@@ -69,16 +69,24 @@ def init_db():
             topic TEXT,
             homework TEXT,
             is_held INTEGER DEFAULT 1,
-            lesson_type TEXT DEFAULT 'lesson'
+            lesson_type TEXT DEFAULT 'lesson',
+            weight INTEGER DEFAULT 1,
+            parent_id INTEGER
         )
     """)
 
-    # Если колонка lesson_number еще не добавлена в существующую таблицу
+    # Миграция колонок, если таблица уже существовала в Supabase
     cur.execute("""
         DO $$ 
         BEGIN 
             IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lessons' AND column_name='lesson_number') THEN
                 ALTER TABLE lessons ADD COLUMN lesson_number INTEGER DEFAULT 1;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lessons' AND column_name='weight') THEN
+                ALTER TABLE lessons ADD COLUMN weight INTEGER DEFAULT 1;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lessons' AND column_name='parent_id') THEN
+                ALTER TABLE lessons ADD COLUMN parent_id INTEGER;
             END IF;
         END $$;
     """)
@@ -95,7 +103,6 @@ def init_db():
         )
     """)
 
-    # Создание пользователей по умолчанию
     cur.execute("SELECT id FROM users WHERE login = %s", ('admin',))
     if not cur.fetchone():
         cur.execute("""
