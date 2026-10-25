@@ -23,7 +23,7 @@
         .journal-heading { font-size: 16px; font-weight: bold; color: #1c609c; }
         .journal-subtitle { color: #666; font-size: 11px; }
 
-        /* Компактная панель фильтров слева (стиль АСУ РСО) */
+        /* Компактная панель фильтров слева */
         .filter-panel { background: #e2e8f0; border: 1px solid #b8cce4; padding: 6px 12px; display: inline-flex; align-items: center; gap: 15px; border-radius: 3px; margin-bottom: 12px; }
         .filter-group { display: inline-flex; align-items: center; gap: 5px; }
         .filter-group label { font-weight: bold; font-size: 11px; color: #333; }
@@ -46,8 +46,23 @@
 
         .badge-k { display: block; font-size: 9px; font-weight: bold; color: #b71c1c; }
         .badge-s { display: block; font-size: 9px; font-weight: bold; color: #006064; }
-        .check-btn { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; background: #1c609c; color: #fff; text-decoration: none; font-size: 10px; border-radius: 2px; font-weight: bold; }
+        .check-btn { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; background: #1c609c; color: #fff; text-decoration: none; font-size: 9px; border-radius: 2px; font-weight: bold; }
         .check-btn:hover { background: #0b3d68; }
+
+        .btn-del-work-mini {
+            background: #dc3545;
+            color: #ffffff;
+            border: none;
+            font-size: 8px;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 12px;
+            vertical-align: middle;
+            margin-left: 1px;
+        }
 
         td.student-name { text-align: left; padding: 3px 8px; background: #fff; font-size: 11px; }
         tr:hover td.student-name { background-color: #fce8b2; }
@@ -144,7 +159,6 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Компактная панель фильтров слева -->
     <form method="GET" action="/teacher" class="filter-panel">
         <div class="filter-group">
             <label>Класс:</label>
@@ -214,6 +228,12 @@
                                 {% for les in lessons %}
                                     <th class="header-check" data-col="{{ loop.index0 }}">
                                         <a href="/lesson/{{ les.id }}" class="check-btn" title="Выставить оценки / Карточка урока">✔</a>
+                                        {% if les.lesson_type in ['control', 'test'] %}
+                                            <button type="button" 
+                                                    class="btn-del-work-mini" 
+                                                    onclick="deleteWorkFromJournal('{{ les.id }}')" 
+                                                    title="Удалить эту проверочную колонку">✕</button>
+                                        {% endif %}
                                     </th>
                                 {% endfor %}
                             </tr>
@@ -259,6 +279,11 @@
     <button type="button" class="picker-btn" onclick="applyPickerGrade('.')">Точка (.)</button>
     <button type="button" class="picker-btn btn-clear" onclick="applyPickerGrade('')">Очистить</button>
 </div>
+
+<!-- Скрытая форма для удаления колонки прямо из таблицы журнала -->
+<form id="deleteJournalColForm" method="POST" action="" style="display: none;">
+    <input type="hidden" name="redirect_to" value="teacher">
+</form>
 
 <script>
     let activeInput = null;
@@ -338,6 +363,14 @@
             document.querySelectorAll('.col-highlight').forEach(el => el.classList.remove('col-highlight'));
         }
     });
+
+    function deleteWorkFromJournal(lesId) {
+        if (confirm("Вы точно хотите удалить эту проверочную колонку из журнала?")) {
+            const f = document.getElementById('deleteJournalColForm');
+            f.action = '/lesson/delete/' + lesId;
+            f.submit();
+        }
+    }
 </script>
 </body>
 </html>
