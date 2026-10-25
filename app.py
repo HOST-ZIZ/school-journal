@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 from database import get_db, init_db
 import datetime
 
@@ -149,7 +149,7 @@ def admin_panel():
 
     return render_template("admin.html", fio=session.get("fio"), classes=classes, students=students, subjects=subjects, teachers=teachers, periods=periods)
 
-# --- УПРАВЛЕНИЕ РАСПИСАНИЕМ (5-дневка, уроки 1-7) ---
+# --- РАСПИСАНИЕ УРОКОВ ---
 @app.route("/schedule", methods=["GET", "POST"])
 def schedule_panel():
     if session.get("role") != "admin":
@@ -176,7 +176,6 @@ def schedule_panel():
 
             cur_date = start_dt
             while cur_date <= end_dt:
-                # 5-дневка: понедельник (0) - пятница (4)
                 if cur_date.weekday() < 5:
                     d_str = cur_date.isoformat()
                     field_name = f"lesson_num_{d_str}"
@@ -186,7 +185,7 @@ def schedule_panel():
                         l_num = int(lesson_num)
                         cur.execute("""
                             SELECT id FROM lessons 
-                            WHERE class_id = %s AND subject_id = %s AND lesson_date = %s
+                            WHERE class_id = %s AND subject_id = %s AND lesson_date = %s AND lesson_type = 'lesson'
                         """, (c_id, s_id, d_str))
                         existing = cur.fetchone()
 
@@ -194,11 +193,10 @@ def schedule_panel():
                             cur.execute("UPDATE lessons SET lesson_number = %s WHERE id = %s", (l_num, existing["id"]))
                         else:
                             cur.execute("""
-                                INSERT INTO lessons (class_id, subject_id, lesson_date, lesson_number, topic, homework, is_held, lesson_type)
-                                VALUES (%s, %s, %s, %s, 'Урок', '', 1, 'lesson')
+                                INSERT INTO lessons (class_id, subject_id, lesson_date, lesson_number, topic, homework, is_held, lesson_type, weight)
+                                VALUES (%s, %s, %s, %s, 'Урок', '', 1, 'lesson', 1)
                             """, (c_id, s_id, d_str, l_num))
                     else:
-                        # Если поле очистили — удаляем урок этого предмета на этот день
                         cur.execute("""
                             DELETE FROM lessons 
                             WHERE class_id = %s AND subject_id = %s AND lesson_date = %s
@@ -206,7 +204,7 @@ def schedule_panel():
 
                 cur_date += datetime.timedelta(days=1)
             conn.commit()
-            flash("Расписание успешно сохранено!", "success")
+            flash("Расписание сохранено!", "success")
 
         cur.close()
         conn.close()
@@ -231,7 +229,7 @@ def schedule_panel():
 
             cur.execute("""
                 SELECT lesson_date, lesson_number FROM lessons 
-                WHERE class_id = %s AND subject_id = %s AND lesson_date BETWEEN %s AND %s
+                WHERE class_id = %s AND subject_id = %s AND lesson_type = 'lesson' AND lesson_date BETWEEN %s AND %s
             """, (class_id, subject_id, period["start_date"], period["end_date"]))
             for row in cur.fetchall():
                 lessons_map[row["lesson_date"]] = row["lesson_number"]
@@ -262,6 +260,358 @@ def schedule_panel():
         days_list=days_list
     )
 
+# --- ЖУРНАЛ УЧИТЕЛЯ ---
+@app.route("/teacher", methods=["GET", "POST"])
+def teacher_panel():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    cur = conn.cursor()
+    class_id = request.args.get("class_id", type=int)
+    subject_id = request.args.get("subject_id", type=int)
+    period_id = request.args.get("period_id", type=int)
+
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        if action == "save_journal":
+            c_id = request.form.get("class_id")
+            s_id = request.form.get("subject_id")
+            p_id = request.form.get("period_id")
+
+            for key, val in request.form.items():
+                if key.startswith("cell_"):
+                    parts = key.split("_")
+                    if len(parts) == 3:
+                        st_id, les_id = parts[1], parts[2]
+                        raw_val = val.strip().upper().replace("\\", "/")
+                        
+                        g_parts = [p.strip() for p in raw_val.split("/") if p.strip()] if "/" in raw_val else ([raw_val] if raw_val else [])
+                        val_class = g_parts[0] if len(g_parts) > 0 else ""
+                        val_hw = g_parts[1] if len(g_parts) > 1 else ""
+
+                        cur.execute("SELECT lesson_type, weight FROM lessons WHERE id = %s", (les_id,))
+                        les_info = cur.fetchone()
+                        w_class = les_info["weight"] if les_info and les_info.get("weight") else 1
+                        w_hw = 1
+
+                        # Первая оценка (урок / работа)
+                        cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'class'", (st_id, les_id))
+                        exist_class = cur.fetchone()
+                        if val_class in ["2", "3", "4", "5", "Н", "У", "О", "."]:
+                            if exist_class:
+                                cur.execute("UPDATE grades SET grade = %s, weight = %s WHERE id = %s", (val_class, w_class, exist_class["id"]))
+                            else:
+                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, 'class', %s)", (st_id, les_id, val_class, w_class))
+                        else:
+                            if exist_class:
+                                cur.execute("DELETE FROM grades WHERE id = %s", (exist_class["id"],))
+
+                        # Вторая оценка (ДЗ)
+                        cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'homework'", (st_id, les_id))
+                        exist_hw = cur.fetchone()
+                        if val_hw in ["2", "3", "4", "5", "Н", "У", "О", "."]:
+                            if exist_hw:
+                                cur.execute("UPDATE grades SET grade = %s, weight = %s WHERE id = %s", (val_hw, w_hw, exist_hw["id"]))
+                            else:
+                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, 'homework', %s)", (st_id, les_id, val_hw, w_hw))
+                        else:
+                            if exist_hw:
+                                cur.execute("DELETE FROM grades WHERE id = %s", (exist_hw["id"],))
+
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Журнал сохранен!", "success")
+            return redirect(url_for("teacher_panel", class_id=c_id, subject_id=s_id, period_id=p_id))
+
+    cur.execute("SELECT * FROM classes ORDER BY name")
+    classes = cur.fetchall()
+    cur.execute("SELECT * FROM subjects ORDER BY name")
+    subjects = cur.fetchall()
+    cur.execute("SELECT * FROM periods ORDER BY start_date")
+    periods = cur.fetchall()
+
+    students = []
+    lessons = []
+    month_groups = []
+    cell_values = {}
+    student_stats = {}
+
+    months_ru = {
+        1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель",
+        5: "Май", 6: "Июнь", 7: "Июль", 8: "Август",
+        9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь"
+    }
+
+    if class_id and subject_id and period_id:
+        cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (class_id,))
+        students = cur.fetchall()
+        cur.execute("SELECT * FROM periods WHERE id = %s", (period_id,))
+        period = cur.fetchone()
+
+        if period:
+            cur.execute("""
+                SELECT * FROM lessons 
+                WHERE class_id = %s AND subject_id = %s AND lesson_date BETWEEN %s AND %s 
+                ORDER BY lesson_date, lesson_number ASC, id ASC
+            """, (class_id, subject_id, period["start_date"], period["end_date"]))
+            lessons_raw = cur.fetchall()
+            
+            current_m_key = None
+            for les in lessons_raw:
+                dt = datetime.datetime.strptime(les["lesson_date"], "%Y-%m-%d").date()
+                les_dict = dict(les)
+                les_dict["day_num"] = dt.day
+                lessons.append(les_dict)
+
+                m_key = (dt.year, dt.month)
+                if current_m_key != m_key:
+                    current_m_key = m_key
+                    month_groups.append({
+                        "name": months_ru.get(dt.month, ""),
+                        "count": 1
+                    })
+                else:
+                    month_groups[-1]["count"] += 1
+
+        cur.execute("""
+            SELECT g.* FROM grades g JOIN lessons l ON g.lesson_id = l.id WHERE l.class_id = %s AND l.subject_id = %s
+        """, (class_id, subject_id))
+        raw_grades = cur.fetchall()
+
+        grades_lookup = {}
+        for g in raw_grades:
+            key = (g["student_id"], g["lesson_id"])
+            if key not in grades_lookup:
+                grades_lookup[key] = {}
+            grades_lookup[key][g["grade_type"]] = g
+
+        for key, g_dict in grades_lookup.items():
+            g_cl = g_dict.get("class", {}).get("grade", "")
+            g_hw = g_dict.get("homework", {}).get("grade", "")
+            
+            if g_cl and g_hw:
+                cell_values[key] = f"{g_cl}/{g_hw}"
+            elif g_cl:
+                cell_values[key] = g_cl
+            elif g_hw:
+                cell_values[key] = f"/{g_hw}"
+
+        # Подсчёт среднего балла (ТОЧКА '.' ПОЛНОСТЬЮ ИГНОРИРУЕТСЯ И НЕ СЧИТАЕТСЯ ДВОЙКОЙ)
+        valid_lesson_ids = {l["id"] for l in lessons}
+        for st in students:
+            total_score = 0.0
+            total_weight = 0
+
+            for l_id in valid_lesson_ids:
+                g_dict = grades_lookup.get((st["id"], l_id), {})
+                for g_t in ['class', 'homework', 'test', 'control']:
+                    g_obj = g_dict.get(g_t)
+                    # Только реальные баллы 2, 3, 4, 5 участвуют в подсчёте
+                    if g_obj and g_obj["grade"] in ["2", "3", "4", "5"]:
+                        w = g_obj["weight"] if g_obj["weight"] else 1
+                        total_score += int(g_obj["grade"]) * w
+                        total_weight += w
+            
+            avg = round(total_score / total_weight, 2) if total_weight > 0 else 0.0
+            
+            period_grade = ""
+            if avg >= 4.5: period_grade = "5"
+            elif avg >= 3.5: period_grade = "4"
+            elif avg >= 2.5: period_grade = "3"
+            elif avg > 0: period_grade = "2"
+
+            student_stats[st["id"]] = {"avg": f"{avg:.2f}" if avg > 0 else "-", "period_grade": period_grade}
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "teacher.html",
+        fio=session.get("fio"),
+        role=session.get("role"),
+        classes=classes,
+        subjects=subjects,
+        periods=periods,
+        selected_class=class_id,
+        selected_subject=subject_id,
+        selected_period=period_id,
+        students=students,
+        lessons=lessons,
+        month_groups=month_groups,
+        cell_values=cell_values,
+        student_stats=student_stats
+    )
+
+# --- КАРТОЧКА УРОКА (ВЫСТАВИТЬ ОЦЕНКИ / КОНТРОЛЬНЫЕ И САМОСТОЯТЕЛЬНЫЕ) ---
+@app.route("/lesson/<int:lesson_id>", methods=["GET", "POST"])
+def edit_lesson(lesson_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT l.*, c.name as class_name, s.name as subject_name 
+        FROM lessons l 
+        JOIN classes c ON l.class_id = c.id 
+        JOIN subjects s ON l.subject_id = s.id 
+        WHERE l.id = %s
+    """, (lesson_id,))
+    lesson = cur.fetchone()
+
+    if not lesson:
+        cur.close()
+        conn.close()
+        return "Урок не найден", 404
+
+    # Находим связанный родительский урок (если это доп. колонка) или сам урок
+    main_lesson_id = lesson["parent_id"] if lesson.get("parent_id") else lesson["id"]
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        
+        # 1. Добавление новой контрольной или самостоятельной работы
+        if action == "add_work_column":
+            work_type = request.form.get("work_type", "control") # 'control' (К) или 'test' (С)
+            work_weight = request.form.get("work_weight", 1, type=int)
+            work_title = "Контрольная работа" if work_type == "control" else "Самостоятельная работа"
+
+            cur.execute("""
+                INSERT INTO lessons (class_id, subject_id, lesson_date, lesson_number, topic, homework, is_held, lesson_type, weight, parent_id)
+                VALUES (%s, %s, %s, %s, %s, '', 1, %s, %s, %s)
+            """, (lesson["class_id"], lesson["subject_id"], lesson["lesson_date"], lesson["lesson_number"], work_title, work_type, work_weight, main_lesson_id))
+            conn.commit()
+            flash(f"Колонка «{work_title}» (вес {work_weight}) успешно добавлена!", "success")
+            cur.close()
+            conn.close()
+            return redirect(url_for("edit_lesson", lesson_id=main_lesson_id))
+
+        # 2. Удаление проверочной колонки
+        elif action == "delete_work_column":
+            del_id = request.form.get("del_lesson_id")
+            if del_id:
+                cur.execute("DELETE FROM grades WHERE lesson_id = %s", (del_id,))
+                cur.execute("DELETE FROM lessons WHERE id = %s", (del_id,))
+                conn.commit()
+                flash("Колонка работы удалена!", "info")
+            cur.close()
+            conn.close()
+            return redirect(url_for("edit_lesson", lesson_id=main_lesson_id))
+
+        # 3. Сохранение оценок и данных урока
+        elif action in ["save_all", "save_and_return"]:
+            topic = request.form.get("topic", "").strip()
+            homework = request.form.get("homework", "").strip()
+            is_held = 1 if request.form.get("is_held") == "on" else 0
+            
+            cur.execute("UPDATE lessons SET topic = %s, homework = %s, is_held = %s WHERE id = %s", (topic, homework, is_held, main_lesson_id))
+
+            # Получаем все колонки (главный урок + дополнительные работы)
+            cur.execute("""
+                SELECT id, lesson_type, weight FROM lessons 
+                WHERE id = %s OR parent_id = %s
+            """, (main_lesson_id, main_lesson_id))
+            all_work_cols = cur.fetchall()
+
+            cur.execute("SELECT id FROM students WHERE class_id = %s", (lesson["class_id"],))
+            class_students = cur.fetchall()
+
+            for st in class_students:
+                st_id = st["id"]
+                att_val = request.form.get(f"attend_{st_id}", "").strip().upper()
+
+                for col in all_work_cols:
+                    col_id = col["id"]
+                    c_type = col["lesson_type"]
+                    c_weight = col["weight"] if col.get("weight") else 1
+
+                    if col_id == main_lesson_id:
+                        # Оценка за работу на уроке
+                        cl_val = request.form.get(f"class_grade_{st_id}", "").strip().upper()
+                        if att_val and not cl_val:
+                            cl_val = att_val
+
+                        cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'class'", (st_id, col_id))
+                        exist_cl = cur.fetchone()
+                        if cl_val in ["2", "3", "4", "5", "Н", "У", "О", "."]:
+                            if exist_cl:
+                                cur.execute("UPDATE grades SET grade = %s WHERE id = %s", (cl_val, exist_cl["id"]))
+                            else:
+                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, 'class', 1)", (st_id, col_id, cl_val))
+                        elif exist_cl:
+                            cur.execute("DELETE FROM grades WHERE id = %s", (exist_cl["id"],))
+
+                        # Оценка за ДЗ
+                        hw_val = request.form.get(f"hw_grade_{st_id}", "").strip().upper()
+                        cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'homework'", (st_id, col_id))
+                        exist_hw = cur.fetchone()
+                        if hw_val in ["2", "3", "4", "5", "Н", "У", "О", "."]:
+                            if exist_hw:
+                                cur.execute("UPDATE grades SET grade = %s WHERE id = %s", (hw_val, exist_hw["id"]))
+                            else:
+                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, 'homework', 1)", (st_id, col_id, hw_val))
+                        elif exist_hw:
+                            cur.execute("DELETE FROM grades WHERE id = %s", (exist_hw["id"],))
+                    else:
+                        # Дополнительная контрольная или самостоятельная работа
+                        work_val = request.form.get(f"work_grade_{col_id}_{st_id}", "").strip().upper()
+                        cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'class'", (st_id, col_id))
+                        exist_w = cur.fetchone()
+                        if work_val in ["2", "3", "4", "5", "Н", "У", "О", "."]:
+                            if exist_w:
+                                cur.execute("UPDATE grades SET grade = %s, weight = %s WHERE id = %s", (work_val, c_weight, exist_w["id"]))
+                            else:
+                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, 'class', %s)", (st_id, col_id, work_val, c_weight))
+                        elif exist_w:
+                            cur.execute("DELETE FROM grades WHERE id = %s", (exist_w["id"],))
+
+            conn.commit()
+            flash("Оценки успешно сохранены!", "success")
+
+            if action == "save_and_return":
+                cur.close()
+                conn.close()
+                return redirect(url_for("teacher_panel", class_id=lesson["class_id"], subject_id=lesson["subject_id"]))
+
+            cur.close()
+            conn.close()
+            return redirect(url_for("edit_lesson", lesson_id=main_lesson_id))
+
+    # Загружаем главный урок и все добавленные к нему проверочные работы
+    cur.execute("""
+        SELECT * FROM lessons 
+        WHERE parent_id = %s 
+        ORDER BY id ASC
+    """, (main_lesson_id,))
+    extra_works = cur.fetchall()
+
+    cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (lesson["class_id"],))
+    students = cur.fetchall()
+
+    all_ids = [main_lesson_id] + [w["id"] for w in extra_works]
+    cur.execute("SELECT * FROM grades WHERE lesson_id = ANY(%s)", (all_ids,))
+    raw_grades = cur.fetchall()
+    
+    lesson_grades = {}
+    for g in raw_grades:
+        g_type = g["grade_type"] if "grade_type" in g.keys() and g["grade_type"] else "class"
+        lesson_grades[(g["student_id"], g["lesson_id"], g_type)] = g["grade"]
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "lesson_card.html",
+        fio=session.get("fio"),
+        lesson=lesson,
+        extra_works=extra_works,
+        students=students,
+        lesson_grades=lesson_grades
+    )
+
 # --- ЭЛЕКТРОННЫЙ ДНЕВНИК УЧЕНИКА ---
 @app.route("/diary")
 def student_diary():
@@ -282,12 +632,11 @@ def student_diary():
 
     timetable = []
     if class_id and selected_date:
-        # Извлекаем все уроки класса на эту дату, упорядоченные с 1 по 7
         cur.execute("""
             SELECT l.id, l.lesson_number, l.lesson_date, l.topic, l.homework, l.lesson_type, s.name as subject_name
             FROM lessons l
             JOIN subjects s ON l.subject_id = s.id
-            WHERE l.class_id = %s AND l.lesson_date = %s
+            WHERE l.class_id = %s AND l.lesson_date = %s AND l.lesson_type = 'lesson'
             ORDER BY l.lesson_number ASC
         """, (class_id, selected_date))
         lessons = cur.fetchall()
@@ -334,197 +683,7 @@ def student_diary():
         timetable=timetable
     )
 
-# --- ЖУРНАЛ УЧИТЕЛЯ (В СТИЛЕ АСУ РСО С ДВОЙНЫМИ ОЦЕНКАМИ ЧЕРЕЗ СЛЕШ) ---
-@app.route("/teacher", methods=["GET", "POST"])
-def teacher_panel():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-
-    conn = get_db()
-    cur = conn.cursor()
-    class_id = request.args.get("class_id", type=int)
-    subject_id = request.args.get("subject_id", type=int)
-    period_id = request.args.get("period_id", type=int)
-
-    if request.method == "POST":
-        action = request.form.get("action")
-
-        if action == "save_journal":
-            c_id = request.form.get("class_id")
-            s_id = request.form.get("subject_id")
-            p_id = request.form.get("period_id")
-
-            # Обработка ячеек с оценками вида cell_stID_lesID
-            for key, val in request.form.items():
-                if key.startswith("cell_"):
-                    parts = key.split("_")
-                    if len(parts) == 3:
-                        st_id, les_id = parts[1], parts[2]
-                        raw_val = val.strip().upper().replace("\\", "/")
-                        
-                        # Разделяем на 1-ю и 2-ю оценку через слеш (урок / дз)
-                        g_parts = [p.strip() for p in raw_val.split("/") if p.strip()] if "/" in raw_val else ([raw_val] if raw_val else [])
-                        
-                        val_class = g_parts[0] if len(g_parts) > 0 else ""
-                        val_hw = g_parts[1] if len(g_parts) > 1 else ""
-
-                        # Получаем тип урока для веса
-                        cur.execute("SELECT lesson_type FROM lessons WHERE id = %s", (les_id,))
-                        les_info = cur.fetchone()
-                        w_class = 3 if les_info and les_info["lesson_type"] == 'control' else (2 if les_info and les_info["lesson_type"] == 'test' else 1)
-                        w_hw = 1
-
-                        # 1. Сохранение первой оценки (за урок)
-                        cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'class'", (st_id, les_id))
-                        exist_class = cur.fetchone()
-                        if val_class in ["2", "3", "4", "5", "Н", "У", "О"]:
-                            if exist_class:
-                                cur.execute("UPDATE grades SET grade = %s, weight = %s WHERE id = %s", (val_class, w_class, exist_class["id"]))
-                            else:
-                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, 'class', %s)", (st_id, les_id, val_class, w_class))
-                        else:
-                            if exist_class:
-                                cur.execute("DELETE FROM grades WHERE id = %s", (exist_class["id"],))
-
-                        # 2. Сохранение второй оценки (за ДЗ)
-                        cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'homework'", (st_id, les_id))
-                        exist_hw = cur.fetchone()
-                        if val_hw in ["2", "3", "4", "5", "Н", "У", "О"]:
-                            if exist_hw:
-                                cur.execute("UPDATE grades SET grade = %s, weight = %s WHERE id = %s", (val_hw, w_hw, exist_hw["id"]))
-                            else:
-                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, 'homework', %s)", (st_id, les_id, val_hw, w_hw))
-                        else:
-                            if exist_hw:
-                                cur.execute("DELETE FROM grades WHERE id = %s", (exist_hw["id"],))
-
-            conn.commit()
-            cur.close()
-            conn.close()
-            flash("Журнал успешно сохранён!", "success")
-            return redirect(url_for("teacher_panel", class_id=c_id, subject_id=s_id, period_id=p_id))
-
-    cur.execute("SELECT * FROM classes ORDER BY name")
-    classes = cur.fetchall()
-    cur.execute("SELECT * FROM subjects ORDER BY name")
-    subjects = cur.fetchall()
-    cur.execute("SELECT * FROM periods ORDER BY start_date")
-    periods = cur.fetchall()
-
-    students = []
-    lessons = []
-    month_groups = []
-    cell_values = {}
-    student_stats = {}
-
-    months_ru = {
-        1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель",
-        5: "Май", 6: "Июнь", 7: "Июль", 8: "Август",
-        9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь"
-    }
-
-    if class_id and subject_id and period_id:
-        cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (class_id,))
-        students = cur.fetchall()
-        cur.execute("SELECT * FROM periods WHERE id = %s", (period_id,))
-        period = cur.fetchone()
-
-        if period:
-            cur.execute("""
-                SELECT * FROM lessons 
-                WHERE class_id = %s AND subject_id = %s AND lesson_date BETWEEN %s AND %s 
-                ORDER BY lesson_date, lesson_number ASC, id ASC
-            """, (class_id, subject_id, period["start_date"], period["end_date"]))
-            lessons_raw = cur.fetchall()
-            
-            # Подготовка списка уроков с номером дня и группировка по месяцам
-            current_m_key = None
-            for les in lessons_raw:
-                dt = datetime.datetime.strptime(les["lesson_date"], "%Y-%m-%d").date()
-                les_dict = dict(les)
-                les_dict["day_num"] = dt.day
-                lessons.append(les_dict)
-
-                m_key = (dt.year, dt.month)
-                if current_m_key != m_key:
-                    current_m_key = m_key
-                    month_groups.append({
-                        "name": months_ru.get(dt.month, ""),
-                        "count": 1
-                    })
-                else:
-                    month_groups[-1]["count"] += 1
-
-        cur.execute("""
-            SELECT g.* FROM grades g JOIN lessons l ON g.lesson_id = l.id WHERE l.class_id = %s AND l.subject_id = %s
-        """, (class_id, subject_id))
-        raw_grades = cur.fetchall()
-
-        # Собираем оценки: если есть и за урок, и за ДЗ — формируем строку "5/4"
-        grades_lookup = {}
-        for g in raw_grades:
-            key = (g["student_id"], g["lesson_id"])
-            if key not in grades_lookup:
-                grades_lookup[key] = {}
-            grades_lookup[key][g["grade_type"]] = g
-
-        for key, g_dict in grades_lookup.items():
-            g_cl = g_dict.get("class", {}).get("grade", "")
-            g_hw = g_dict.get("homework", {}).get("grade", "")
-            
-            if g_cl and g_hw:
-                cell_values[key] = f"{g_cl}/{g_hw}"
-            elif g_cl:
-                cell_values[key] = g_cl
-            elif g_hw:
-                cell_values[key] = f"/{g_hw}"
-
-        # Подсчёт средней оценки
-        valid_lesson_ids = {l["id"] for l in lessons}
-        for st in students:
-            total_score = 0.0
-            total_weight = 0
-
-            for l_id in valid_lesson_ids:
-                g_dict = grades_lookup.get((st["id"], l_id), {})
-                for g_t in ['class', 'homework', 'test', 'control']:
-                    g_obj = g_dict.get(g_t)
-                    if g_obj and g_obj["grade"] in ["2", "3", "4", "5"]:
-                        w = g_obj["weight"] if g_obj["weight"] else 1
-                        total_score += int(g_obj["grade"]) * w
-                        total_weight += w
-            
-            avg = round(total_score / total_weight, 2) if total_weight > 0 else 0.0
-            
-            period_grade = ""
-            if avg >= 4.5: period_grade = "5"
-            elif avg >= 3.5: period_grade = "4"
-            elif avg >= 2.5: period_grade = "3"
-            elif avg > 0: period_grade = "2"
-
-            student_stats[st["id"]] = {"avg": f"{avg:.2f}" if avg > 0 else "-", "period_grade": period_grade}
-
-    cur.close()
-    conn.close()
-
-    return render_template(
-        "teacher.html",
-        fio=session.get("fio"),
-        role=session.get("role"),
-        classes=classes,
-        subjects=subjects,
-        periods=periods,
-        selected_class=class_id,
-        selected_subject=subject_id,
-        selected_period=period_id,
-        students=students,
-        lessons=lessons,
-        month_groups=month_groups,
-        cell_values=cell_values,
-        student_stats=student_stats
-    )
-
-# --- СВОДНАЯ ВЕДОМОСТЬ КЛАССА ---
+# --- СВОДНАЯ ВЕДОМОСТЬ ---
 @app.route("/report")
 def class_report():
     if "user_id" not in session:
@@ -575,96 +734,6 @@ def class_report():
     cur.close()
     conn.close()
     return render_template("report.html", fio=session.get("fio"), classes=classes, periods=periods, subjects=subjects, report_data=report_data, selected_class=class_id, selected_period=period_id)
-
-# --- КАРТОЧКА УРОКА ---
-@app.route("/lesson/<int:lesson_id>", methods=["GET", "POST"])
-def edit_lesson(lesson_id):
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT l.*, c.name as class_name, s.name as subject_name 
-        FROM lessons l 
-        JOIN classes c ON l.class_id = c.id 
-        JOIN subjects s ON l.subject_id = s.id 
-        WHERE l.id = %s
-    """, (lesson_id,))
-    lesson = cur.fetchone()
-
-    if not lesson:
-        cur.close()
-        conn.close()
-        return "Урок не найден", 404
-
-    if request.method == "POST":
-        action = request.form.get("action")
-        
-        if action == "update_info":
-            topic = request.form.get("topic", "").strip()
-            homework = request.form.get("homework", "").strip()
-            is_held = 1 if request.form.get("is_held") == "on" else 0
-            
-            cur.execute("UPDATE lessons SET topic = %s, homework = %s, is_held = %s WHERE id = %s", (topic, homework, is_held, lesson_id))
-            conn.commit()
-            flash("Информация об уроке обновлена!", "success")
-
-        elif action == "save_lesson_grades":
-            for key, val in request.form.items():
-                if key.startswith("lesgrade_"):
-                    parts = key.split("_")
-                    if len(parts) == 3:
-                        g_type, st_id = parts[1], parts[2]
-                        grade_val = val.strip().upper()
-                        comment = request.form.get(f"comment_{g_type}_{st_id}", "").strip()
-
-                        if grade_val in ["2", "3", "4", "5", "Н", "У", "О", ""]:
-                            weight = 3 if lesson["lesson_type"] == 'control' else (2 if lesson["lesson_type"] == 'test' else 1)
-                            
-                            cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = %s", (st_id, lesson_id, g_type))
-                            existing = cur.fetchone()
-                            if existing:
-                                if grade_val:
-                                    cur.execute("UPDATE grades SET grade = %s, weight = %s, comment = %s WHERE id = %s", (grade_val, weight, comment, existing["id"]))
-                                else:
-                                    cur.execute("DELETE FROM grades WHERE id = %s", (existing["id"],))
-                            elif grade_val:
-                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight, comment) VALUES (%s, %s, %s, %s, %s, %s)", (st_id, lesson_id, grade_val, g_type, weight, comment))
-            conn.commit()
-            flash("Оценки и комментарии сохранены!", "success")
-
-        elif action == "add_class_column":
-            col_type = request.form.get("col_type") 
-            col_title = "Контрольная работа" if col_type == "control" else "Самостоятельная работа"
-            
-            cur.execute("""
-                INSERT INTO lessons (class_id, subject_id, lesson_date, topic, homework, is_held, lesson_type)
-                VALUES (%s, %s, %s, %s, '', 1, %s)
-            """, (lesson["class_id"], lesson["subject_id"], lesson["lesson_date"], col_title, col_type))
-            conn.commit()
-            flash("Дополнительная колонка работы добавлена в журнал!", "success")
-
-        cur.close()
-        conn.close()
-        return redirect(url_for("edit_lesson", lesson_id=lesson_id))
-
-    cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (lesson["class_id"],))
-    students = cur.fetchall()
-    cur.execute("SELECT * FROM grades WHERE lesson_id = %s", (lesson_id,))
-    raw_grades = cur.fetchall()
-    
-    lesson_grades = {}
-    for g in raw_grades:
-        try:
-            g_type = g["grade_type"] if "grade_type" in g.keys() and g["grade_type"] else "class"
-        except:
-            g_type = "class"
-        lesson_grades[(g["student_id"], g_type)] = {"val": g["grade"], "comment": g["comment"] or ""}
-
-    cur.close()
-    conn.close()
-    return render_template("lesson_card.html", fio=session.get("fio"), lesson=lesson, students=students, lesson_grades=lesson_grades)
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=8080, debug=True)
