@@ -296,7 +296,7 @@ def teacher_panel():
                         w_class = les_info["weight"] if les_info and les_info.get("weight") else 1
                         w_hw = 1
 
-                        # Первая оценка (урок / работа)
+                        # Первая оценка (урок / проверочная работа)
                         cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'class'", (st_id, les_id))
                         exist_class = cur.fetchone()
                         if val_class in ["2", "3", "4", "5", "Н", "У", "О", "."]:
@@ -409,7 +409,6 @@ def teacher_panel():
                 g_dict = grades_lookup.get((st["id"], l_id), {})
                 for g_t in ['class', 'homework', 'test', 'control']:
                     g_obj = g_dict.get(g_t)
-                    # Только реальные баллы 2, 3, 4, 5 участвуют в подсчёте
                     if g_obj and g_obj["grade"] in ["2", "3", "4", "5"]:
                         w = g_obj["weight"] if g_obj["weight"] else 1
                         total_score += int(g_obj["grade"]) * w
@@ -445,7 +444,34 @@ def teacher_panel():
         student_stats=student_stats
     )
 
-# --- КАРТОЧКА УРОКА (ВЫСТАВИТЬ ОЦЕНКИ / КОНТРОЛЬНЫЕ И САМОСТОЯТЕЛЬНЫЕ) ---
+# --- УДАЛЕНИЕ ПРОВЕРОЧНОЙ КОЛОНКИ (ИЗ ЖУРНАЛА ИЛИ КАРТОЧКИ) ---
+@app.route("/lesson/delete/<int:lesson_id>", methods=["POST"])
+def delete_lesson_route(lesson_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT class_id, subject_id, parent_id FROM lessons WHERE id = %s", (lesson_id,))
+    les = cur.fetchone()
+
+    if les:
+        cur.execute("DELETE FROM grades WHERE lesson_id = %s", (lesson_id,))
+        cur.execute("DELETE FROM lessons WHERE id = %s", (lesson_id,))
+        conn.commit()
+        flash("Колонка работы успешно удалена!", "info")
+
+    cur.close()
+    conn.close()
+
+    redirect_to = request.form.get("redirect_to", "teacher")
+    if redirect_to == "lesson" and les and les["parent_id"]:
+        return redirect(url_for("edit_lesson", lesson_id=les["parent_id"]))
+    elif les:
+        return redirect(url_for("teacher_panel", class_id=les["class_id"], subject_id=les["subject_id"]))
+    return redirect(url_for("teacher_panel"))
+
+# --- КАРТОЧКА УРОКА (ВЫСТАВИТЬ ОЦЕНКИ) ---
 @app.route("/lesson/<int:lesson_id>", methods=["GET", "POST"])
 def edit_lesson(lesson_id):
     if "user_id" not in session:
@@ -467,15 +493,14 @@ def edit_lesson(lesson_id):
         conn.close()
         return "Урок не найден", 404
 
-    # Находим связанный родительский урок (если это доп. колонка) или сам урок
     main_lesson_id = lesson["parent_id"] if lesson.get("parent_id") else lesson["id"]
 
     if request.method == "POST":
         action = request.form.get("action")
         
-        # 1. Добавление новой контрольной или самостоятельной работы
+        # 1. Добавление проверочной колонки
         if action == "add_work_column":
-            work_type = request.form.get("work_type", "control") # 'control' (К) или 'test' (С)
+            work_type = request.form.get("work_type", "control")
             work_weight = request.form.get("work_weight", 1, type=int)
             work_title = "Контрольная работа" if work_type == "control" else "Самостоятельная работа"
 
@@ -484,24 +509,12 @@ def edit_lesson(lesson_id):
                 VALUES (%s, %s, %s, %s, %s, '', 1, %s, %s, %s)
             """, (lesson["class_id"], lesson["subject_id"], lesson["lesson_date"], lesson["lesson_number"], work_title, work_type, work_weight, main_lesson_id))
             conn.commit()
-            flash(f"Колонка «{work_title}» (вес {work_weight}) успешно добавлена!", "success")
+            flash(f"Колонка «{work_title}» создана!", "success")
             cur.close()
             conn.close()
             return redirect(url_for("edit_lesson", lesson_id=main_lesson_id))
 
-        # 2. Удаление проверочной колонки
-        elif action == "delete_work_column":
-            del_id = request.form.get("del_lesson_id")
-            if del_id:
-                cur.execute("DELETE FROM grades WHERE lesson_id = %s", (del_id,))
-                cur.execute("DELETE FROM lessons WHERE id = %s", (del_id,))
-                conn.commit()
-                flash("Колонка работы удалена!", "info")
-            cur.close()
-            conn.close()
-            return redirect(url_for("edit_lesson", lesson_id=main_lesson_id))
-
-        # 3. Сохранение оценок и данных урока
+        # 2. Сохранение оценок
         elif action in ["save_all", "save_and_return"]:
             topic = request.form.get("topic", "").strip()
             homework = request.form.get("homework", "").strip()
@@ -509,11 +522,10 @@ def edit_lesson(lesson_id):
             
             cur.execute("UPDATE lessons SET topic = %s, homework = %s, is_held = %s WHERE id = %s", (topic, homework, is_held, main_lesson_id))
 
-            # Получаем все колонки (главный урок + дополнительные работы)
             cur.execute("""
                 SELECT id, lesson_type, weight FROM lessons 
-                WHERE id = %s OR parent_id = %s
-            """, (main_lesson_id, main_lesson_id))
+                WHERE id = %s OR parent_id = %s OR (class_id = %s AND subject_id = %s AND lesson_date = %s AND lesson_type != 'lesson')
+            """, (main_lesson_id, main_lesson_id, lesson["class_id"], lesson["subject_id"], lesson["lesson_date"]))
             all_work_cols = cur.fetchall()
 
             cur.execute("SELECT id FROM students WHERE class_id = %s", (lesson["class_id"],))
@@ -525,11 +537,9 @@ def edit_lesson(lesson_id):
 
                 for col in all_work_cols:
                     col_id = col["id"]
-                    c_type = col["lesson_type"]
                     c_weight = col["weight"] if col.get("weight") else 1
 
                     if col_id == main_lesson_id:
-                        # Оценка за работу на уроке
                         cl_val = request.form.get(f"class_grade_{st_id}", "").strip().upper()
                         if att_val and not cl_val:
                             cl_val = att_val
@@ -544,7 +554,6 @@ def edit_lesson(lesson_id):
                         elif exist_cl:
                             cur.execute("DELETE FROM grades WHERE id = %s", (exist_cl["id"],))
 
-                        # Оценка за ДЗ
                         hw_val = request.form.get(f"hw_grade_{st_id}", "").strip().upper()
                         cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'homework'", (st_id, col_id))
                         exist_hw = cur.fetchone()
@@ -556,7 +565,6 @@ def edit_lesson(lesson_id):
                         elif exist_hw:
                             cur.execute("DELETE FROM grades WHERE id = %s", (exist_hw["id"],))
                     else:
-                        # Дополнительная контрольная или самостоятельная работа
                         work_val = request.form.get(f"work_grade_{col_id}_{st_id}", "").strip().upper()
                         cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'class'", (st_id, col_id))
                         exist_w = cur.fetchone()
@@ -580,12 +588,11 @@ def edit_lesson(lesson_id):
             conn.close()
             return redirect(url_for("edit_lesson", lesson_id=main_lesson_id))
 
-    # Загружаем главный урок и все добавленные к нему проверочные работы
     cur.execute("""
         SELECT * FROM lessons 
-        WHERE parent_id = %s 
+        WHERE (parent_id = %s OR (class_id = %s AND subject_id = %s AND lesson_date = %s AND id != %s))
         ORDER BY id ASC
-    """, (main_lesson_id,))
+    """, (main_lesson_id, lesson["class_id"], lesson["subject_id"], lesson["lesson_date"], main_lesson_id))
     extra_works = cur.fetchall()
 
     cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (lesson["class_id"],))
