@@ -8,13 +8,11 @@
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; width: 100%; font-family: Tahoma, Arial, sans-serif; font-size: 11px; background: #e9edf2; color: #333; }
 
-        /* Верхняя панель */
         .top-header { background: #1c609c; color: white; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f4370; }
         .logo-title { font-size: 13px; font-weight: bold; }
         .user-block { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; }
         .user-block a { color: #d0e4f7; text-decoration: none; }
 
-        /* Навигация */
         .nav-toolbar { background: #3b7bb5; padding: 6px 12px; display: flex; gap: 12px; overflow-x: auto; }
         .nav-toolbar a { color: #ffffff; text-decoration: none; font-size: 11px; white-space: nowrap; }
         .nav-toolbar a.active { background: #1c609c; font-weight: bold; border-radius: 2px; padding: 2px 6px; }
@@ -25,7 +23,6 @@
         .journal-heading { font-size: 15px; font-weight: bold; color: #1c609c; }
         .journal-subtitle { color: #666; font-size: 11px; display: block; margin-top: 3px; }
 
-        /* Панель фильтров: адаптивная под мобильный */
         .filter-panel { background: #e2e8f0; border: 1px solid #b8cce4; padding: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-radius: 3px; margin-bottom: 10px; width: 100%; }
         .filter-group { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 130px; }
         .filter-group label { font-weight: bold; font-size: 11px; color: #333; }
@@ -33,20 +30,18 @@
         button.btn-load { background: #28a745; color: white; border: 1px solid #1e7e34; font-weight: bold; cursor: pointer; padding: 4px 14px; }
         button.btn-save { background: #007bff; color: white; border: 1px solid #0056b3; font-weight: bold; cursor: pointer; padding: 6px 18px; font-size: 12px; border-radius: 2px; }
 
-        /* Адаптивный скролл таблицы */
         .table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff; border: 1px solid #8ba0b5; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         table.journal-grid { border-collapse: separate; border-spacing: 0; width: max-content; }
         table.journal-grid th, table.journal-grid td { border-right: 1px solid #b8cce4; border-bottom: 1px solid #b8cce4; text-align: center; padding: 0; }
 
-        /* Фиксированная колонка с учениками (липкая при скролле вправо) */
         .col-sticky-student { 
             position: sticky; 
             left: 0; 
             z-index: 10; 
             background: #dce6f1; 
-            width: 140px; 
-            min-width: 140px; 
-            max-width: 160px; 
+            width: 150px; 
+            min-width: 150px; 
+            max-width: 170px; 
             text-align: left; 
             padding: 6px; 
             border-right: 2px solid #8ba0b5 !important;
@@ -57,21 +52,24 @@
         tr:hover td.col-sticky-student { background-color: #fce8b2; }
 
         th.header-month { background: #dce6f1; font-weight: bold; padding: 4px; font-size: 11px; }
-        th.header-day { background: #edf2f8; font-weight: normal; font-size: 11px; height: 22px; width: 34px; min-width: 34px; }
-        th.header-check { background: #f2f6fa; height: 22px; width: 34px; min-width: 34px; }
+        
+        /* КВАДРАТНЫЕ ЯЧЕЙКИ В ШАПКЕ */
+        th.header-day { background: #edf2f8; font-weight: normal; font-size: 11px; height: 28px; width: 28px; min-width: 28px; max-width: 28px; }
+        th.header-check { background: #f2f6fa; height: 28px; width: 28px; min-width: 28px; max-width: 28px; }
         th.header-stat { background: #dce6f1; width: 48px; min-width: 48px; font-size: 10px; font-weight: bold; padding: 2px; }
 
+        .badge-work { display: block; font-size: 9px; font-weight: bold; color: #b71c1c; margin-top: 1px; }
         .check-btn { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; background: #1c609c; color: #fff; text-decoration: none; font-size: 10px; border-radius: 2px; font-weight: bold; }
 
-        td.mark-cell { width: 34px; min-width: 34px; height: 26px; padding: 0; background: #fff; }
-        input.mark-input { width: 100%; height: 26px; border: none; outline: none; background: transparent; text-align: center; font-size: 11px; font-weight: bold; color: #000; font-family: Tahoma, Arial, sans-serif; cursor: pointer; }
+        /* СТРОГО КВАДРАТНЫЕ КЛЕТОЧКИ ОЦЕНОК (28px на 28px) */
+        td.mark-cell { width: 28px; min-width: 28px; max-width: 28px; height: 28px; padding: 0; background: #fff; }
+        input.mark-input { width: 100%; height: 28px; border: none; outline: none; background: transparent; text-align: center; font-size: 11px; font-weight: bold; color: #000; font-family: Tahoma, Arial, sans-serif; cursor: pointer; padding: 0; }
 
         tr:hover td.mark-cell { background-color: #fce8b2; }
         .col-highlight { background-color: #fff2cc !important; }
 
         td.stat-cell { font-weight: bold; font-size: 11px; background: #f2f6fa; width: 48px; min-width: 48px; }
 
-        /* Всплывающий блок выбора оценки */
         #gradePickerMenu {
             display: none;
             position: fixed;
@@ -142,7 +140,7 @@
 <div class="container">
     <div class="journal-title-bar">
         <span class="journal-heading">Классный журнал</span>
-        <span class="journal-subtitle">Тап по ячейке выбирает оценку (двойные: 5/4)</span>
+        <span class="journal-subtitle">Квадратные ячейки журнала (двойные оценки пишутся через слеш: 5/4)</span>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -207,15 +205,20 @@
                         </tr>
                         <tr>
                             {% for les in lessons %}
-                                <th class="header-day" data-col="{{ loop.index0 }}" title="{{ les.lesson_date }} ({{ les.lesson_number }}-й урок)">
+                                <th class="header-day" data-col="{{ loop.index0 }}" title="{{ les.topic }} ({{ les.lesson_date }})">
                                     {{ les.day_num }}
+                                    {% if les.lesson_type == 'control' %}
+                                        <span class="badge-work">К({{ les.weight }})</span>
+                                    {% elif les.lesson_type == 'test' %}
+                                        <span class="badge-work">С({{ les.weight }})</span>
+                                    {% endif %}
                                 </th>
                             {% endfor %}
                         </tr>
                         <tr>
                             {% for les in lessons %}
                                 <th class="header-check" data-col="{{ loop.index0 }}">
-                                    <a href="/lesson/{{ les.id }}" class="check-btn" title="Выставить оценки">✔</a>
+                                    <a href="/lesson/{{ les.id }}" class="check-btn" title="Выставить оценки / Карточка урока">✔</a>
                                 </th>
                             {% endfor %}
                         </tr>
@@ -249,6 +252,7 @@
     {% endif %}
 </div>
 
+<!-- Всплывающий выбор оценки -->
 <div id="gradePickerMenu">
     <div class="picker-title">Оценка</div>
     <button type="button" class="picker-btn" onclick="applyPickerGrade('5')">5</button>
@@ -256,7 +260,7 @@
     <button type="button" class="picker-btn" onclick="applyPickerGrade('3')">3</button>
     <button type="button" class="picker-btn" onclick="applyPickerGrade('2')">2</button>
     <button type="button" class="picker-btn" onclick="applyPickerGrade('Н')">Н</button>
-    <button type="button" class="picker-btn" onclick="applyPickerGrade('.')">Точка</button>
+    <button type="button" class="picker-btn" onclick="applyPickerGrade('.')">Точка (.)</button>
     <button type="button" class="picker-btn btn-clear" onclick="applyPickerGrade('')">Очистить</button>
 </div>
 
@@ -283,7 +287,6 @@
             let topPos = rect.bottom + 2;
             let leftPos = rect.left;
 
-            // Корректировка позиционирования меню у края экрана
             if (leftPos + 120 > window.innerWidth) {
                 leftPos = window.innerWidth - 130;
             }
