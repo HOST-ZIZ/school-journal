@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from database import get_db, init_db
 import datetime
+import random
 
 app = Flask(__name__)
 app.secret_key = "asu_rso_local_secure_key"
@@ -10,13 +11,48 @@ try:
 except Exception as e:
     print(f"Ошибка при инициализации базы: {e}")
 
+
+def check_teacher_access(cur, user_id, role, class_id, subject_id):
+    """Возвращает 'full' (полный доступ) или 'attendance_only' (только Н, У, О и просмотр)."""
+    if role == "admin":
+        return "full"
+    cur.execute("SELECT homeroom_class_id FROM users WHERE id = %s", (user_id,))
+    u_row = cur.fetchone()
+    if u_row and u_row.get("homeroom_class_id") and int(u_row["homeroom_class_id"]) == int(class_id):
+        return "full"
+    cur.execute("SELECT 1 FROM teacher_subjects WHERE user_id = %s AND subject_id = %s", (user_id, subject_id))
+    if cur.fetchone():
+        return "full"
+    return "attendance_only"
+
+
+def get_subjects_for_class(cur, class_id):
+    """Возвращает предметы, привязанные к классу (если не настроены — все предметы)."""
+    if class_id:
+        cur.execute("""
+            SELECT s.* FROM subjects s
+            JOIN class_subjects cs ON s.id = cs.subject_id
+            WHERE cs.class_id = %s
+            ORDER BY s.name
+        """, (class_id,))
+        linked = cur.fetchall()
+        if linked:
+            return linked
+    cur.execute("SELECT * FROM subjects ORDER BY name")
+    return cur.fetchall()
+
+
 @app.route("/")
 def index():
     if "user_id" not in session:
         return redirect(url_for("login"))
-    if session.get("role") == "admin":
+    role = session.get("role")
+    if role == "admin":
         return redirect(url_for("admin_panel"))
+    if role == "student":
+        return redirect(url_for("student_diary"))
     return redirect(url_for("teacher_panel"))
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -25,24 +61,45 @@ def login():
         pass_val = request.form.get("password", "").strip()
         conn = get_db()
         cur = conn.cursor()
+
+        # 1. Проверка среди администраторов и учителей
         cur.execute("SELECT * FROM users WHERE login = %s AND password = %s", (login_val, pass_val))
         user = cur.fetchone()
-        cur.close()
-        conn.close()
         if user:
+            session.clear()
             session["user_id"] = user["id"]
             session["fio"] = user["fio"]
             session["role"] = user["role"]
+            cur.close()
+            conn.close()
             return redirect(url_for("index"))
-        else:
-            flash("Неверный логин или пароль!", "error")
-            return redirect(url_for("login"))
+
+        # 2. Проверка среди учеников
+        cur.execute("SELECT * FROM students WHERE login = %s AND password = %s", (login_val, pass_val))
+        student = cur.fetchone()
+        if student:
+            session.clear()
+            session["user_id"] = student["id"]
+            session["student_id"] = student["id"]
+            session["class_id"] = student["class_id"]
+            session["fio"] = student["fio"]
+            session["role"] = "student"
+            cur.close()
+            conn.close()
+            return redirect(url_for("student_diary"))
+
+        cur.close()
+        conn.close()
+        flash("Неверный логин или пароль!", "error")
+        return redirect(url_for("login"))
     return render_template("login.html")
+
 
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
 
 # --- ПАНЕЛЬ АДМИНИСТРАТОРА ---
 @app.route("/admin", methods=["GET", "POST"])
@@ -70,10 +127,38 @@ def admin_panel():
         elif action == "add_student":
             fio = request.form.get("fio", "").strip()
             class_id = request.form.get("class_id")
+            st_login = request.form.get("login", "").strip() or None
+            st_pass = request.form.get("password", "").strip() or None
             if fio and class_id:
-                cur.execute("INSERT INTO students (fio, class_id) VALUES (%s, %s)", (fio, class_id))
-                conn.commit()
-                flash(f"Ученик {fio} добавлен!", "success")
+                try:
+                    cur.execute(
+                        "INSERT INTO students (fio, class_id, login, password) VALUES (%s, %s, %s, %s)",
+                        (fio, class_id, st_login, st_pass)
+                    )
+                    conn.commit()
+                    flash(f"Ученик {fio} добавлен!", "success")
+                except:
+                    conn.rollback()
+                    flash("Ошибка: такой логин ученика уже занят!", "error")
+
+        elif action == "update_student_creds":
+            student_id = request.form.get("student_id")
+            st_login = request.form.get("login", "").strip() or None
+            st_pass = request.form.get("password", "").strip() or None
+            if request.form.get("auto_gen") == "1":
+                st_login = f"st{student_id}_{random.randint(10, 99)}"
+                st_pass = str(random.randint(10000, 99999))
+            if student_id:
+                try:
+                    cur.execute(
+                        "UPDATE students SET login = %s, password = %s WHERE id = %s",
+                        (st_login, st_pass, student_id)
+                    )
+                    conn.commit()
+                    flash("Логин и пароль ученика обновлены!", "success")
+                except:
+                    conn.rollback()
+                    flash("Этот логин уже используется другим учеником!", "error")
 
         elif action == "transfer_student":
             student_id = request.form.get("student_id")
@@ -108,18 +193,72 @@ def admin_panel():
             conn.commit()
             flash("Предмет удален!", "success")
 
+        elif action == "save_class_subjects":
+            c_id = request.form.get("class_id", type=int)
+            selected_subs = request.form.getlist("subject_ids")
+            if c_id:
+                cur.execute("DELETE FROM class_subjects WHERE class_id = %s", (c_id,))
+                for s_id in selected_subs:
+                    cur.execute(
+                        "INSERT INTO class_subjects (class_id, subject_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                        (c_id, int(s_id))
+                    )
+                conn.commit()
+                flash("Предметы для класса сохранены!", "success")
+
         elif action == "add_teacher":
             fio = request.form.get("fio", "").strip()
             login_u = request.form.get("login", "").strip()
             pass_u = request.form.get("password", "").strip()
+            homeroom_id = request.form.get("homeroom_class_id") or None
             if fio and login_u and pass_u:
                 try:
-                    cur.execute("INSERT INTO users (fio, login, password, role) VALUES (%s, %s, %s, 'teacher')", (fio, login_u, pass_u))
+                    cur.execute(
+                        "INSERT INTO users (fio, login, password, role, homeroom_class_id) VALUES (%s, %s, %s, 'teacher', %s)",
+                        (fio, login_u, pass_u, homeroom_id)
+                    )
                     conn.commit()
                     flash(f"Учитель {fio} зарегистрирован!", "success")
                 except:
                     conn.rollback()
                     flash("Логин занят!", "error")
+
+        elif action == "update_teacher":
+            t_id = request.form.get("teacher_id", type=int)
+            new_pass = request.form.get("new_password", "").strip()
+            homeroom_id = request.form.get("homeroom_class_id") or None
+            if t_id:
+                if new_pass:
+                    cur.execute(
+                        "UPDATE users SET password = %s, homeroom_class_id = %s WHERE id = %s",
+                        (new_pass, homeroom_id, t_id)
+                    )
+                else:
+                    cur.execute(
+                        "UPDATE users SET homeroom_class_id = %s WHERE id = %s",
+                        (homeroom_id, t_id)
+                    )
+                conn.commit()
+                flash("Данные учителя обновлены!", "success")
+
+        elif action == "add_teacher_subject":
+            t_id = request.form.get("teacher_id", type=int)
+            s_id = request.form.get("subject_id", type=int)
+            if t_id and s_id:
+                cur.execute(
+                    "INSERT INTO teacher_subjects (user_id, subject_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                    (t_id, s_id)
+                )
+                conn.commit()
+                flash("Предмет назначен учителю!", "success")
+
+        elif action == "remove_teacher_subject":
+            t_id = request.form.get("teacher_id", type=int)
+            s_id = request.form.get("subject_id", type=int)
+            if t_id and s_id:
+                cur.execute("DELETE FROM teacher_subjects WHERE user_id = %s AND subject_id = %s", (t_id, s_id))
+                conn.commit()
+                flash("Предмет убран у учителя!", "info")
 
         elif action == "add_period":
             p_name = request.form.get("period_name", "").strip()
@@ -140,14 +279,47 @@ def admin_panel():
     students = cur.fetchall()
     cur.execute("SELECT * FROM subjects ORDER BY name")
     subjects = cur.fetchall()
-    cur.execute("SELECT * FROM users WHERE role = 'teacher' ORDER BY fio")
+    cur.execute("""
+        SELECT u.*, c.name as homeroom_class_name 
+        FROM users u 
+        LEFT JOIN classes c ON u.homeroom_class_id = c.id 
+        WHERE u.role = 'teacher' 
+        ORDER BY u.fio
+    """)
     teachers = cur.fetchall()
+
+    cur.execute("""
+        SELECT ts.user_id, s.id as subject_id, s.name as subject_name
+        FROM teacher_subjects ts
+        JOIN subjects s ON ts.subject_id = s.id
+        ORDER BY s.name
+    """)
+    teacher_subs_map = {}
+    for row in cur.fetchall():
+        teacher_subs_map.setdefault(row["user_id"], []).append(row)
+
+    cur.execute("SELECT class_id, subject_id FROM class_subjects")
+    class_subs_map = {}
+    for row in cur.fetchall():
+        class_subs_map.setdefault(row["class_id"], set()).add(row["subject_id"])
+
     cur.execute("SELECT * FROM periods ORDER BY start_date")
     periods = cur.fetchall()
     cur.close()
     conn.close()
 
-    return render_template("admin.html", fio=session.get("fio"), classes=classes, students=students, subjects=subjects, teachers=teachers, periods=periods)
+    return render_template(
+        "admin.html",
+        fio=session.get("fio"),
+        classes=classes,
+        students=students,
+        subjects=subjects,
+        teachers=teachers,
+        teacher_subs_map=teacher_subs_map,
+        class_subs_map=class_subs_map,
+        periods=periods
+    )
+
 
 # --- РАСПИСАНИЕ УРОКОВ ---
 @app.route("/schedule", methods=["GET", "POST"])
@@ -212,8 +384,7 @@ def schedule_panel():
 
     cur.execute("SELECT * FROM classes ORDER BY name")
     classes = cur.fetchall()
-    cur.execute("SELECT * FROM subjects ORDER BY name")
-    subjects = cur.fetchall()
+    subjects = get_subjects_for_class(cur, class_id)
     cur.execute("SELECT * FROM periods ORDER BY start_date")
     periods = cur.fetchall()
 
@@ -260,10 +431,11 @@ def schedule_panel():
         days_list=days_list
     )
 
+
 # --- ЖУРНАЛ УЧИТЕЛЯ ---
 @app.route("/teacher", methods=["GET", "POST"])
 def teacher_panel():
-    if "user_id" not in session:
+    if "user_id" not in session or session.get("role") == "student":
         return redirect(url_for("login"))
 
     conn = get_db()
@@ -276,9 +448,11 @@ def teacher_panel():
         action = request.form.get("action")
 
         if action == "save_journal":
-            c_id = request.form.get("class_id")
-            s_id = request.form.get("subject_id")
-            p_id = request.form.get("period_id")
+            c_id = request.form.get("class_id", type=int)
+            s_id = request.form.get("subject_id", type=int)
+            p_id = request.form.get("period_id", type=int)
+
+            access = check_teacher_access(cur, session.get("user_id"), session.get("role"), c_id, s_id)
 
             for key, val in request.form.items():
                 if key.startswith("cell_"):
@@ -296,9 +470,22 @@ def teacher_panel():
                         w_class = les_info["weight"] if les_info and les_info.get("weight") else 1
                         w_hw = 1
 
-                        # Первая оценка (урок / проверочная работа)
-                        cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'class'", (st_id, les_id))
+                        cur.execute("SELECT id, grade FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'class'", (st_id, les_id))
                         exist_class = cur.fetchone()
+
+                        if access == "attendance_only":
+                            # Чужой предмет: разрешено только ставить/удалять Н, У, О
+                            if val_class in ["Н", "У", "О"]:
+                                if not exist_class or exist_class["grade"] in ["Н", "У", "О"]:
+                                    if exist_class:
+                                        cur.execute("UPDATE grades SET grade = %s WHERE id = %s", (val_class, exist_class["id"]))
+                                    else:
+                                        cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, 'class', 1)", (st_id, les_id, val_class))
+                            elif val_class == "" and exist_class and exist_class["grade"] in ["Н", "У", "О"]:
+                                cur.execute("DELETE FROM grades WHERE id = %s", (exist_class["id"],))
+                            continue
+
+                        # Полный доступ (предметник по своему предмету, классный руководитель или админ)
                         if val_class in ["2", "3", "4", "5", "Н", "У", "О", "."]:
                             if exist_class:
                                 cur.execute("UPDATE grades SET grade = %s, weight = %s WHERE id = %s", (val_class, w_class, exist_class["id"]))
@@ -308,7 +495,6 @@ def teacher_panel():
                             if exist_class:
                                 cur.execute("DELETE FROM grades WHERE id = %s", (exist_class["id"],))
 
-                        # Вторая оценка (ДЗ)
                         cur.execute("SELECT id FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'homework'", (st_id, les_id))
                         exist_hw = cur.fetchone()
                         if val_hw in ["2", "3", "4", "5", "Н", "У", "О", "."]:
@@ -320,24 +506,51 @@ def teacher_panel():
                             if exist_hw:
                                 cur.execute("DELETE FROM grades WHERE id = %s", (exist_hw["id"],))
 
+                # Сохранение ручных итоговых оценок (четверть, год, экзамен, итоговая)
+                elif key.startswith("final_") and access == "full":
+                    parts = key.split("_")
+                    if len(parts) == 3:
+                        f_type, st_id = parts[1], int(parts[2])
+                        f_val = val.strip()
+                        target_period = p_id if f_type == "period" else 0
+
+                        if f_val:
+                            cur.execute("""
+                                INSERT INTO final_grades (student_id, subject_id, period_id, grade_type, grade)
+                                VALUES (%s, %s, %s, %s, %s)
+                                ON CONFLICT (student_id, subject_id, period_id, grade_type)
+                                DO UPDATE SET grade = EXCLUDED.grade
+                            """, (st_id, s_id, target_period, f_type, f_val))
+                        else:
+                            cur.execute("""
+                                DELETE FROM final_grades 
+                                WHERE student_id = %s AND subject_id = %s AND period_id = %s AND grade_type = %s
+                            """, (st_id, s_id, target_period, f_type))
+
             conn.commit()
             cur.close()
             conn.close()
-            flash("Журнал сохранен!", "success")
+            flash("Журнал и итоговые оценки сохранены!", "success")
             return redirect(url_for("teacher_panel", class_id=c_id, subject_id=s_id, period_id=p_id))
 
     cur.execute("SELECT * FROM classes ORDER BY name")
     classes = cur.fetchall()
-    cur.execute("SELECT * FROM subjects ORDER BY name")
-    subjects = cur.fetchall()
+    subjects = get_subjects_for_class(cur, class_id)
     cur.execute("SELECT * FROM periods ORDER BY start_date")
     periods = cur.fetchall()
+
+    # Если выбран класс, но выбранный предмет не входит в предметы этого класса — сбрасываем subject_id
+    valid_sub_ids = {s["id"] for s in subjects}
+    if subject_id and valid_sub_ids and subject_id not in valid_sub_ids:
+        subject_id = None
 
     students = []
     lessons = []
     month_groups = []
     cell_values = {}
     student_stats = {}
+    final_marks = {}
+    access_mode = "full"
 
     months_ru = {
         1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель",
@@ -346,6 +559,8 @@ def teacher_panel():
     }
 
     if class_id and subject_id and period_id:
+        access_mode = check_teacher_access(cur, session.get("user_id"), session.get("role"), class_id, subject_id)
+
         cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (class_id,))
         students = cur.fetchall()
         cur.execute("SELECT * FROM periods WHERE id = %s", (period_id,))
@@ -399,7 +614,14 @@ def teacher_panel():
             elif g_hw:
                 cell_values[key] = f"/{g_hw}"
 
-        # Подсчёт среднего балла (ТОЧКА '.' ПОЛНОСТЬЮ ИГНОРИРУЕТСЯ И НЕ СЧИТАЕТСЯ ДВОЙКОЙ)
+        # Загружаем ручные итоговые оценки (за выбранный период и годовые/экзаменационные/итоговые)
+        cur.execute("""
+            SELECT student_id, grade_type, grade FROM final_grades
+            WHERE subject_id = %s AND (period_id = %s OR period_id = 0)
+        """, (subject_id, period_id))
+        for fg in cur.fetchall():
+            final_marks[(fg["student_id"], fg["grade_type"])] = fg["grade"]
+
         valid_lesson_ids = {l["id"] for l in lessons}
         for st in students:
             total_score = 0.0
@@ -415,14 +637,16 @@ def teacher_panel():
                         total_weight += w
             
             avg = round(total_score / total_weight, 2) if total_weight > 0 else 0.0
-            
-            period_grade = ""
-            if avg >= 4.5: period_grade = "5"
-            elif avg >= 3.5: period_grade = "4"
-            elif avg >= 2.5: period_grade = "3"
-            elif avg > 0: period_grade = "2"
+            suggested = ""
+            if avg >= 4.5: suggested = "5"
+            elif avg >= 3.5: suggested = "4"
+            elif avg >= 2.5: suggested = "3"
+            elif avg > 0: suggested = "2"
 
-            student_stats[st["id"]] = {"avg": f"{avg:.2f}" if avg > 0 else "-", "period_grade": period_grade}
+            student_stats[st["id"]] = {
+                "avg": f"{avg:.2f}" if avg > 0 else "-",
+                "suggested": suggested
+            }
 
     cur.close()
     conn.close()
@@ -441,13 +665,16 @@ def teacher_panel():
         lessons=lessons,
         month_groups=month_groups,
         cell_values=cell_values,
-        student_stats=student_stats
+        student_stats=student_stats,
+        final_marks=final_marks,
+        access_mode=access_mode
     )
 
-# --- УДАЛЕНИЕ ПРОВЕРОЧНОЙ КОЛОНКИ (ИЗ ЖУРНАЛА ИЛИ КАРТОЧКИ) ---
+
+# --- УДАЛЕНИЕ ПРОВЕРОЧНОЙ КОЛОНКИ ---
 @app.route("/lesson/delete/<int:lesson_id>", methods=["POST"])
 def delete_lesson_route(lesson_id):
-    if "user_id" not in session:
+    if "user_id" not in session or session.get("role") == "student":
         return redirect(url_for("login"))
 
     conn = get_db()
@@ -458,6 +685,13 @@ def delete_lesson_route(lesson_id):
     period_id = request.form.get("period_id", type=int)
 
     if les:
+        access = check_teacher_access(cur, session.get("user_id"), session.get("role"), les["class_id"], les["subject_id"])
+        if access != "full":
+            flash("У вас нет прав удалять работы по чужому предмету!", "error")
+            cur.close()
+            conn.close()
+            return redirect(url_for("teacher_panel", class_id=les["class_id"], subject_id=les["subject_id"], period_id=period_id))
+
         if not period_id:
             cur.execute("SELECT id FROM periods WHERE %s BETWEEN start_date AND end_date LIMIT 1", (les["lesson_date"],))
             p_row = cur.fetchone()
@@ -478,10 +712,11 @@ def delete_lesson_route(lesson_id):
         return redirect(url_for("teacher_panel", class_id=les["class_id"], subject_id=les["subject_id"], period_id=period_id))
     return redirect(url_for("teacher_panel"))
 
-# --- КАРТОЧКА УРОКА (ВЫСТАВИТЬ ОЦЕНКИ) ---
+
+# --- КАРТОЧКА УРОКА ---
 @app.route("/lesson/<int:lesson_id>", methods=["GET", "POST"])
 def edit_lesson(lesson_id):
-    if "user_id" not in session:
+    if "user_id" not in session or session.get("role") == "student":
         return redirect(url_for("login"))
 
     conn = get_db()
@@ -500,12 +735,10 @@ def edit_lesson(lesson_id):
         conn.close()
         return "Урок не найден", 404
 
+    access_mode = check_teacher_access(cur, session.get("user_id"), session.get("role"), lesson["class_id"], lesson["subject_id"])
     main_lesson_id = lesson["parent_id"] if lesson.get("parent_id") else lesson["id"]
 
-    # Определяем ID периода (четверти): из GET, POST или по дате урока
-    period_id = request.args.get("period_id", type=int)
-    if not period_id:
-        period_id = request.form.get("period_id", type=int)
+    period_id = request.args.get("period_id", type=int) or request.form.get("period_id", type=int)
     if not period_id:
         cur.execute("SELECT id FROM periods WHERE %s BETWEEN start_date AND end_date LIMIT 1", (lesson["lesson_date"],))
         p_row = cur.fetchone()
@@ -519,8 +752,13 @@ def edit_lesson(lesson_id):
     if request.method == "POST":
         action = request.form.get("action")
         
-        # 1. Создание проверочной колонки
         if action == "add_work_column":
+            if access_mode != "full":
+                flash("Нельзя создавать проверочные работы по чужому предмету!", "error")
+                cur.close()
+                conn.close()
+                return redirect(url_for("edit_lesson", lesson_id=main_lesson_id, period_id=period_id))
+
             work_type = request.form.get("work_type", "control")
             work_weight = request.form.get("work_weight", 1, type=int)
             work_title = "Контрольная работа" if work_type == "control" else "Самостоятельная работа"
@@ -535,13 +773,12 @@ def edit_lesson(lesson_id):
             conn.close()
             return redirect(url_for("edit_lesson", lesson_id=main_lesson_id, period_id=period_id))
 
-        # 2. Сохранение оценок
         elif action in ["save_all", "save_and_return"]:
-            topic = request.form.get("topic", "").strip()
-            homework = request.form.get("homework", "").strip()
-            is_held = 1 if request.form.get("is_held") == "on" else 0
-            
-            cur.execute("UPDATE lessons SET topic = %s, homework = %s, is_held = %s WHERE id = %s", (topic, homework, is_held, main_lesson_id))
+            if access_mode == "full":
+                topic = request.form.get("topic", "").strip()
+                homework = request.form.get("homework", "").strip()
+                is_held = 1 if request.form.get("is_held") == "on" else 0
+                cur.execute("UPDATE lessons SET topic = %s, homework = %s, is_held = %s WHERE id = %s", (topic, homework, is_held, main_lesson_id))
 
             cur.execute("""
                 SELECT id, lesson_type, weight FROM lessons 
@@ -555,6 +792,19 @@ def edit_lesson(lesson_id):
             for st in class_students:
                 st_id = st["id"]
                 att_val = request.form.get(f"attend_{st_id}", "").strip().upper()
+
+                if access_mode == "attendance_only":
+                    cur.execute("SELECT id, grade FROM grades WHERE student_id = %s AND lesson_id = %s AND grade_type = 'class'", (st_id, main_lesson_id))
+                    exist_cl = cur.fetchone()
+                    if att_val in ["Н", "У", "О"]:
+                        if not exist_cl or exist_cl["grade"] in ["Н", "У", "О"]:
+                            if exist_cl:
+                                cur.execute("UPDATE grades SET grade = %s WHERE id = %s", (att_val, exist_cl["id"]))
+                            else:
+                                cur.execute("INSERT INTO grades (student_id, lesson_id, grade, grade_type, weight) VALUES (%s, %s, %s, 'class', 1)", (st_id, main_lesson_id, att_val))
+                    elif att_val == "" and exist_cl and exist_cl["grade"] in ["Н", "У", "О"]:
+                        cur.execute("DELETE FROM grades WHERE id = %s", (exist_cl["id"],))
+                    continue
 
                 for col in all_work_cols:
                     col_id = col["id"]
@@ -598,7 +848,7 @@ def edit_lesson(lesson_id):
                             cur.execute("DELETE FROM grades WHERE id = %s", (exist_w["id"],))
 
             conn.commit()
-            flash("Оценки успешно сохранены!", "success")
+            flash("Данные сохранены!", "success")
 
             if action == "save_and_return":
                 cur.close()
@@ -638,21 +888,39 @@ def edit_lesson(lesson_id):
         extra_works=extra_works,
         students=students,
         lesson_grades=lesson_grades,
-        period_id=period_id
+        period_id=period_id,
+        access_mode=access_mode
     )
+
 
 # --- ЭЛЕКТРОННЫЙ ДНЕВНИК УЧЕНИКА ---
 @app.route("/diary")
 def student_diary():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
     conn = get_db()
     cur = conn.cursor()
 
-    class_id = request.args.get("class_id", type=int)
-    student_id = request.args.get("student_id", type=int)
+    role = session.get("role")
+    if role == "student":
+        class_id = session.get("class_id")
+        student_id = session.get("student_id")
+    else:
+        class_id = request.args.get("class_id", type=int)
+        student_id = request.args.get("student_id", type=int)
+
     selected_date = request.args.get("date", datetime.date.today().isoformat())
+    selected_period = request.args.get("period_id", type=int)
+    active_tab = request.args.get("tab", "diary")  # 'diary' или 'grades'
 
     cur.execute("SELECT * FROM classes ORDER BY name")
     classes = cur.fetchall()
+
+    cur.execute("SELECT * FROM periods ORDER BY start_date")
+    periods = cur.fetchall()
+    if not selected_period and periods:
+        selected_period = periods[0]["id"]
 
     students = []
     if class_id:
@@ -698,24 +966,84 @@ def student_diary():
                 "comment": l_grades.get("class", {}).get("comment", "")
             })
 
+    # Данные для вкладки "Четвертные / Итоговые оценки"
+    quarter_summary = []
+    if class_id and student_id:
+        class_subjects = get_subjects_for_class(cur, class_id)
+        period_obj = next((p for p in periods if p["id"] == selected_period), None)
+
+        cur.execute("""
+            SELECT subject_id, period_id, grade_type, grade
+            FROM final_grades
+            WHERE student_id = %s
+        """, (student_id,))
+        fg_map = {}
+        for row in cur.fetchall():
+            fg_map[(row["subject_id"], row["period_id"], row["grade_type"])] = row["grade"]
+
+        for sub in class_subjects:
+            sub_id = sub["id"]
+            # Оценки за выбранную четверть
+            cur.execute("""
+                SELECT g.grade, g.weight, l.lesson_date
+                FROM grades g
+                JOIN lessons l ON g.lesson_id = l.id
+                WHERE g.student_id = %s AND l.class_id = %s AND l.subject_id = %s
+                  AND (%s IS NULL OR l.lesson_date BETWEEN %s AND %s)
+                ORDER BY l.lesson_date ASC, l.id ASC
+            """, (
+                student_id, class_id, sub_id,
+                period_obj["start_date"] if period_obj else None,
+                period_obj["start_date"] if period_obj else "1900-01-01",
+                period_obj["end_date"] if period_obj else "2999-12-31"
+            ))
+            raw_sub_grades = cur.fetchall()
+
+            sc, wt = 0.0, 0
+            marks_list = []
+            for r in raw_sub_grades:
+                marks_list.append(r["grade"])
+                if r["grade"] in ["2", "3", "4", "5"]:
+                    w = r["weight"] if r["weight"] else 1
+                    sc += int(r["grade"]) * w
+                    wt += w
+
+            avg_val = f"{round(sc / wt, 2):.2f}" if wt > 0 else "-"
+
+            quarter_summary.append({
+                "subject": sub["name"],
+                "marks": marks_list,
+                "avg": avg_val,
+                "period_grade": fg_map.get((sub_id, selected_period or 0, "period"), ""),
+                "year_grade": fg_map.get((sub_id, 0, "year"), ""),
+                "exam_grade": fg_map.get((sub_id, 0, "exam"), ""),
+                "final_grade": fg_map.get((sub_id, 0, "final"), "")
+            })
+
     cur.close()
     conn.close()
 
     return render_template(
         "diary.html",
         fio=session.get("fio"),
+        role=role,
         classes=classes,
         students=students,
+        periods=periods,
         selected_class=class_id,
         selected_student=student_id,
         selected_date=selected_date,
-        timetable=timetable
+        selected_period=selected_period,
+        active_tab=active_tab,
+        timetable=timetable,
+        quarter_summary=quarter_summary
     )
+
 
 # --- СВОДНАЯ ВЕДОМОСТЬ ---
 @app.route("/report")
 def class_report():
-    if "user_id" not in session:
+    if "user_id" not in session or session.get("role") == "student":
         return redirect(url_for("login"))
     
     conn = get_db()
@@ -734,8 +1062,7 @@ def class_report():
     if class_id and period_id:
         cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (class_id,))
         students = cur.fetchall()
-        cur.execute("SELECT * FROM subjects ORDER BY name")
-        subjects = cur.fetchall()
+        subjects = get_subjects_for_class(cur, class_id)
         cur.execute("SELECT * FROM periods WHERE id = %s", (period_id,))
         period = cur.fetchone()
 
@@ -763,6 +1090,7 @@ def class_report():
     cur.close()
     conn.close()
     return render_template("report.html", fio=session.get("fio"), classes=classes, periods=periods, subjects=subjects, report_data=report_data, selected_class=class_id, selected_period=period_id)
+
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=8080, debug=True)
