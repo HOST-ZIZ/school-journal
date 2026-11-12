@@ -910,7 +910,13 @@ def student_diary():
         class_id = request.args.get("class_id", type=int)
         student_id = request.args.get("student_id", type=int)
 
-    selected_date = request.args.get("date", datetime.date.today().isoformat())
+    selected_date_str = request.args.get("date", datetime.date.today().isoformat())
+    try:
+        sel_dt = datetime.datetime.strptime(selected_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        sel_dt = datetime.date.today()
+        selected_date_str = sel_dt.isoformat()
+
     selected_period = request.args.get("period_id", type=int)
     active_tab = request.args.get("tab", "diary")  # 'diary' или 'grades'
 
@@ -923,50 +929,114 @@ def student_diary():
         selected_period = periods[0]["id"]
 
     students = []
+    student_fio = session.get("fio", "")
+    class_name = ""
+
     if class_id:
+        cur.execute("SELECT name FROM classes WHERE id = %s", (class_id,))
+        c_row = cur.fetchone()
+        class_name = c_row["name"] if c_row else ""
+
         cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (class_id,))
         students = cur.fetchall()
+        if student_id:
+            st_obj = next((s for s in students if s["id"] == student_id), None)
+            if st_obj:
+                student_fio = st_obj["fio"]
 
-    timetable = []
-    if class_id and selected_date:
+    # Расчёт недели (Понедельник - Суббота)
+    monday = sel_dt - datetime.timedelta(days=sel_dt.weekday())
+    saturday = monday + datetime.timedelta(days=5)
+    prev_week_date = (monday - datetime.timedelta(days=7)).isoformat()
+    next_week_date = (monday + datetime.timedelta(days=7)).isoformat()
+    week_range_str = f"{monday.strftime('%d.%m.%Y')} - {saturday.strftime('%d.%m.%Y')}"
+    today_dt = datetime.date.today()
+
+    weekdays_full = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"]
+    months_gen = {
+        1: "января", 2: "февраля", 3: "марта", 4: "апреля",
+        5: "мая", 6: "июня", 7: "июля", 8: "августа",
+        9: "сентября", 10: "октября", 11: "ноября", 12: "декабря"
+    }
+
+    left_days = []
+    right_days = []
+
+    if class_id:
         cur.execute("""
-            SELECT l.id, l.lesson_number, l.lesson_date, l.topic, l.homework, l.lesson_type, s.name as subject_name
+            SELECT l.*, s.name as subject_name
             FROM lessons l
             JOIN subjects s ON l.subject_id = s.id
-            WHERE l.class_id = %s AND l.lesson_date = %s AND l.lesson_type = 'lesson'
-            ORDER BY l.lesson_number ASC
-        """, (class_id, selected_date))
-        lessons = cur.fetchall()
+            WHERE l.class_id = %s AND l.lesson_date BETWEEN %s AND %s
+            ORDER BY l.lesson_date ASC, l.lesson_number ASC, l.id ASC
+        """, (class_id, monday.isoformat(), saturday.isoformat()))
+        week_lessons = cur.fetchall()
 
         grades_by_lesson = {}
-        if student_id:
+        if student_id and week_lessons:
+            les_ids = [l["id"] for l in week_lessons]
             cur.execute("""
-                SELECT lesson_id, grade, grade_type, comment, weight 
-                FROM grades 
-                WHERE student_id = %s
-            """, (student_id,))
+                SELECT lesson_id, grade, grade_type, weight
+                FROM grades
+                WHERE student_id = %s AND lesson_id = ANY(%s)
+            """, (student_id, les_ids))
             for g in cur.fetchall():
-                les_id = g["lesson_id"]
-                if les_id not in grades_by_lesson:
-                    grades_by_lesson[les_id] = {}
-                grades_by_lesson[les_id][g["grade_type"]] = g
+                grades_by_lesson.setdefault(g["lesson_id"], []).append(g)
 
-        for les in lessons:
-            les_id = les["id"]
-            l_grades = grades_by_lesson.get(les_id, {})
-            timetable.append({
-                "lesson_id": les_id,
-                "number": les["lesson_number"],
-                "subject": les["subject_name"],
-                "topic": les["topic"] or "Тема не указана",
-                "homework": les["homework"] or "Нет домашнего задания",
-                "grade_class": l_grades.get("class", {}).get("grade", ""),
-                "grade_homework": l_grades.get("homework", {}).get("grade", ""),
-                "grade_test": l_grades.get("test", {}).get("grade", "") or l_grades.get("control", {}).get("grade", ""),
-                "comment": l_grades.get("class", {}).get("comment", "")
-            })
+        # Группируем уроки по датам
+        lessons_by_date = {}
+        extra_by_date_subj = {}
+        for l in week_lessons:
+            d_str = l["lesson_date"]
+            if l["lesson_type"] == "lesson":
+                lessons_by_date.setdefault(d_str, {})[l["lesson_number"]] = l
+            else:
+                extra_by_date_subj.setdefault((d_str, l["subject_id"]), []).append(l)
 
-    # Данные для вкладки "Четвертные / Итоговые оценки"
+        for day_idx in range(6):
+            cur_d = monday + datetime.timedelta(days=day_idx)
+            d_iso = cur_d.isoformat()
+            day_title = f"{weekdays_full[day_idx]}, {cur_d.day} {months_gen[cur_d.month]} {cur_d.year} г."
+
+            slots = []
+            day_map = lessons_by_date.get(d_iso, {})
+            for num in range(1, 10):
+                les = day_map.get(num)
+                if les:
+                    les_grades = []
+                    for g in grades_by_lesson.get(les["id"], []):
+                        les_grades.append({"val": g["grade"], "tag": ""})
+                    for ext in extra_by_date_subj.get((d_iso, les["subject_id"]), []):
+                        tag = "К" if ext["lesson_type"] == "control" else "С"
+                        for g in grades_by_lesson.get(ext["id"], []):
+                            les_grades.append({"val": g["grade"], "tag": tag})
+
+                    slots.append({
+                        "num": num,
+                        "subject": les["subject_name"],
+                        "homework": les["homework"] or "",
+                        "grades": les_grades
+                    })
+                else:
+                    slots.append({
+                        "num": num,
+                        "subject": "",
+                        "homework": "",
+                        "grades": []
+                    })
+
+            day_block = {
+                "date_iso": d_iso,
+                "title": day_title,
+                "is_today": (cur_d == today_dt),
+                "slots": slots
+            }
+            if day_idx < 3:
+                left_days.append(day_block)
+            else:
+                right_days.append(day_block)
+
+    # Данные для вкладки "Четвертные оценки"
     quarter_summary = []
     if class_id and student_id:
         class_subjects = get_subjects_for_class(cur, class_id)
@@ -983,7 +1053,6 @@ def student_diary():
 
         for sub in class_subjects:
             sub_id = sub["id"]
-            # Оценки за выбранную четверть
             cur.execute("""
                 SELECT g.grade, g.weight, l.lesson_date
                 FROM grades g
@@ -1026,16 +1095,22 @@ def student_diary():
     return render_template(
         "diary.html",
         fio=session.get("fio"),
+        student_fio=student_fio,
+        class_name=class_name,
         role=role,
         classes=classes,
         students=students,
         periods=periods,
         selected_class=class_id,
         selected_student=student_id,
-        selected_date=selected_date,
+        selected_date=selected_date_str,
         selected_period=selected_period,
         active_tab=active_tab,
-        timetable=timetable,
+        week_range_str=week_range_str,
+        prev_week_date=prev_week_date,
+        next_week_date=next_week_date,
+        left_days=left_days,
+        right_days=right_days,
         quarter_summary=quarter_summary
     )
 
