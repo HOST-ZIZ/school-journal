@@ -24,7 +24,8 @@ def init_db():
             fio TEXT NOT NULL,
             login TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            role TEXT NOT NULL
+            role TEXT NOT NULL,
+            homeroom_class_id INTEGER
         )
     """)
 
@@ -39,7 +40,9 @@ def init_db():
         CREATE TABLE IF NOT EXISTS students (
             id SERIAL PRIMARY KEY,
             fio TEXT NOT NULL,
-            class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE
+            class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+            login TEXT UNIQUE,
+            password TEXT
         )
     """)
 
@@ -47,6 +50,24 @@ def init_db():
         CREATE TABLE IF NOT EXISTS subjects (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL UNIQUE
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS teacher_subjects (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+            UNIQUE(user_id, subject_id)
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS class_subjects (
+            id SERIAL PRIMARY KEY,
+            class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+            subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+            UNIQUE(class_id, subject_id)
         )
     """)
 
@@ -75,22 +96,6 @@ def init_db():
         )
     """)
 
-    # Миграция колонок, если таблица уже существовала в Supabase
-    cur.execute("""
-        DO $$ 
-        BEGIN 
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lessons' AND column_name='lesson_number') THEN
-                ALTER TABLE lessons ADD COLUMN lesson_number INTEGER DEFAULT 1;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lessons' AND column_name='weight') THEN
-                ALTER TABLE lessons ADD COLUMN weight INTEGER DEFAULT 1;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lessons' AND column_name='parent_id') THEN
-                ALTER TABLE lessons ADD COLUMN parent_id INTEGER;
-            END IF;
-        END $$;
-    """)
-
     cur.execute("""
         CREATE TABLE IF NOT EXISTS grades (
             id SERIAL PRIMARY KEY,
@@ -101,6 +106,43 @@ def init_db():
             weight INTEGER DEFAULT 1,
             comment TEXT
         )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS final_grades (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+            subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+            period_id INTEGER DEFAULT 0,
+            grade_type TEXT NOT NULL,
+            grade TEXT NOT NULL,
+            UNIQUE(student_id, subject_id, period_id, grade_type)
+        )
+    """)
+
+    # Безопасная миграция существующих таблиц (данные 1-й четверти не затрагиваются)
+    cur.execute("""
+        DO $$ 
+        BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='homeroom_class_id') THEN
+                ALTER TABLE users ADD COLUMN homeroom_class_id INTEGER;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='students' AND column_name='login') THEN
+                ALTER TABLE students ADD COLUMN login TEXT UNIQUE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='students' AND column_name='password') THEN
+                ALTER TABLE students ADD COLUMN password TEXT;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lessons' AND column_name='lesson_number') THEN
+                ALTER TABLE lessons ADD COLUMN lesson_number INTEGER DEFAULT 1;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lessons' AND column_name='weight') THEN
+                ALTER TABLE lessons ADD COLUMN weight INTEGER DEFAULT 1;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lessons' AND column_name='parent_id') THEN
+                ALTER TABLE lessons ADD COLUMN parent_id INTEGER;
+            END IF;
+        END $$;
     """)
 
     cur.execute("SELECT id FROM users WHERE login = %s", ('admin',))
