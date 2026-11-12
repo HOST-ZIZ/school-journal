@@ -76,6 +76,11 @@
         input.final-input:focus { background: #fff9c4 !important; }
         input.final-input::placeholder { color: #b0c4de; font-weight: normal; font-size: 10px; }
 
+        /* Цвета оценок: 5 - зелёный, 4 и 3 - синий, 2 - красный */
+        .grade-color-5 { color: #1b8a2e !important; }
+        .grade-color-4, .grade-color-3 { color: #1565c0 !important; }
+        .grade-color-2 { color: #d32f2f !important; }
+
         tr:hover td.mark-cell { background-color: #fce8b2; }
         .col-highlight { background-color: #fff2cc !important; }
 
@@ -332,6 +337,21 @@
     const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || ('ontouchstart' in window);
     const accessMode = "{{ access_mode }}";
 
+    function colorizeGradeInput(el) {
+        el.classList.remove('grade-color-5', 'grade-color-4', 'grade-color-3', 'grade-color-2');
+        const v = el.value.trim();
+        if (!v) return;
+        if (v.includes('2')) el.classList.add('grade-color-2');
+        else if (v.includes('3')) el.classList.add('grade-color-3');
+        else if (v.includes('4')) el.classList.add('grade-color-4');
+        else if (v.includes('5')) el.classList.add('grade-color-5');
+    }
+
+    document.querySelectorAll('.mark-input, .final-input').forEach(inp => {
+        colorizeGradeInput(inp);
+        inp.addEventListener('input', () => colorizeGradeInput(inp));
+    });
+
     document.querySelectorAll('.mark-input').forEach(input => {
         if (input.classList.contains('locked-cell')) return;
 
@@ -388,6 +408,7 @@
             }
         }
         picker.style.display = 'none';
+        colorizeGradeInput(activeInput);
         
         if (!isTouchDevice) {
             activeInput.focus();
