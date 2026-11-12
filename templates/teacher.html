@@ -23,15 +23,15 @@
         .journal-heading { font-size: 16px; font-weight: bold; color: #1c609c; }
         .journal-subtitle { color: #666; font-size: 11px; }
 
-        /* Компактная панель фильтров слева */
-        .filter-panel { background: #e2e8f0; border: 1px solid #b8cce4; padding: 6px 12px; display: inline-flex; align-items: center; gap: 15px; border-radius: 3px; margin-bottom: 12px; }
+        .filter-panel { background: #e2e8f0; border: 1px solid #b8cce4; padding: 6px 12px; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 15px; border-radius: 3px; margin-bottom: 12px; }
         .filter-group { display: inline-flex; align-items: center; gap: 5px; }
         .filter-group label { font-weight: bold; font-size: 11px; color: #333; }
         select { font-size: 11px; padding: 2px 5px; border: 1px solid #7f9db9; background: #fff; }
         button.btn-load { background: #28a745; color: white; border: 1px solid #1e7e34; font-weight: bold; cursor: pointer; padding: 3px 12px; border-radius: 2px; }
         button.btn-save { background: #007bff; color: white; border: 1px solid #0056b3; font-weight: bold; cursor: pointer; padding: 5px 16px; font-size: 11px; border-radius: 2px; margin-top: 10px; }
 
-        /* Таблица журнала АСУ РСО */
+        .access-banner { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 6px 12px; margin-bottom: 10px; font-size: 11px; border-radius: 2px; }
+
         .table-wrap { display: inline-block; background: #fff; border: 1px solid #8ba0b5; box-shadow: 0 1px 4px rgba(0,0,0,0.1); max-width: 100%; overflow-x: auto; }
         table.journal-grid { border-collapse: collapse; border-spacing: 0; }
         table.journal-grid th, table.journal-grid td { border: 1px solid #b8cce4; text-align: center; padding: 0; }
@@ -39,10 +39,10 @@
         th.header-student { background: #dce6f1; width: 170px; min-width: 170px; text-align: left; padding: 5px 8px; font-weight: bold; }
         th.header-month { background: #dce6f1; font-weight: bold; padding: 3px; font-size: 11px; }
         
-        /* Квадратные ячейки дней */
         th.header-day { background: #edf2f8; font-weight: normal; font-size: 11px; height: 26px; width: 28px; min-width: 28px; max-width: 28px; line-height: 1.1; }
         th.header-check { background: #f2f6fa; height: 22px; width: 28px; min-width: 28px; max-width: 28px; }
-        th.header-stat { background: #dce6f1; width: 48px; min-width: 48px; font-size: 10px; font-weight: bold; padding: 2px; }
+        th.header-stat { background: #dce6f1; width: 46px; min-width: 46px; font-size: 10px; font-weight: bold; padding: 2px; }
+        th.header-final { background: #d0dfef; width: 48px; min-width: 48px; font-size: 10px; font-weight: bold; padding: 2px; color: #0f4370; }
 
         .badge-k { display: block; font-size: 9px; font-weight: bold; color: #b71c1c; }
         .badge-s { display: block; font-size: 9px; font-weight: bold; color: #006064; }
@@ -67,17 +67,20 @@
         td.student-name { text-align: left; padding: 3px 8px; background: #fff; font-size: 11px; }
         tr:hover td.student-name { background-color: #fce8b2; }
 
-        /* Строго квадратные ячейки 28x28px */
         td.mark-cell { width: 28px; min-width: 28px; max-width: 28px; height: 26px; padding: 0; background: #fff; }
         input.mark-input { width: 100%; height: 25px; border: none; outline: none; background: transparent; text-align: center; font-size: 11px; font-weight: bold; color: #000; font-family: Tahoma, Arial, sans-serif; cursor: pointer; padding: 0; }
         input.mark-input:focus { background: #fffde7 !important; }
 
+        td.final-cell { width: 48px; min-width: 48px; height: 26px; padding: 0; background: #f8fbff; }
+        input.final-input { width: 100%; height: 25px; border: none; outline: none; background: transparent; text-align: center; font-size: 11px; font-weight: bold; color: #0f4370; font-family: Tahoma, Arial, sans-serif; padding: 0; }
+        input.final-input:focus { background: #fff9c4 !important; }
+        input.final-input::placeholder { color: #b0c4de; font-weight: normal; font-size: 10px; }
+
         tr:hover td.mark-cell { background-color: #fce8b2; }
         .col-highlight { background-color: #fff2cc !important; }
 
-        td.stat-cell { font-weight: bold; font-size: 11px; background: #f2f6fa; width: 48px; min-width: 48px; }
+        td.stat-cell { font-weight: bold; font-size: 11px; background: #f2f6fa; width: 46px; min-width: 46px; }
 
-        /* Всплывающее меню оценок */
         #gradePickerMenu {
             display: none;
             position: fixed;
@@ -148,7 +151,7 @@
 <div class="container">
     <div class="journal-title-bar">
         <span class="journal-heading">Классный журнал</span>
-        <span class="journal-subtitle">Клик открывает выбор оценки (двойные вводятся через слеш: <strong>5/4</strong>)</span>
+        <span class="journal-subtitle">Итоговые оценки (Четверть, Год, Экзамен, Итог) выставляются вручную справа</span>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -159,10 +162,10 @@
         {% endif %}
     {% endwith %}
 
-    <form method="GET" action="/teacher" class="filter-panel">
+    <form method="GET" action="/teacher" class="filter-panel" id="filterForm">
         <div class="filter-group">
             <label>Класс:</label>
-            <select name="class_id" required>
+            <select name="class_id" required onchange="document.getElementById('filterForm').submit();">
                 <option value="">Выберите класс...</option>
                 {% for c in classes %}
                     <option value="{{ c.id }}" {% if selected_class == c.id %}selected{% endif %}>{{ c.name }}</option>
@@ -194,6 +197,12 @@
     </form>
 
     {% if selected_class and selected_subject and selected_period %}
+        {% if access_mode == 'attendance_only' %}
+            <div class="access-banner">
+                <strong>Режим посещаемости (чужой предмет):</strong> Вы можете просматривать оценки и отмечать только отсутствие/опоздание (<strong>Н, У, О</strong>). Выставление оценок и итогов по этому предмету недоступно.
+            </div>
+        {% endif %}
+
         <form method="POST" action="/teacher" id="journalForm">
             <input type="hidden" name="action" value="save_journal">
             <input type="hidden" name="class_id" value="{{ selected_class }}">
@@ -210,7 +219,10 @@
                                     <th colspan="{{ mg.count }}" class="header-month">{{ mg.name }}</th>
                                 {% endfor %}
                                 <th rowspan="3" class="header-stat">Ср. балл</th>
-                                <th rowspan="3" class="header-stat">Итог</th>
+                                <th rowspan="3" class="header-final" title="Оценка за выбранный период (вручную)">Период</th>
+                                <th rowspan="3" class="header-final" title="Годовая оценка (вручную)">Год</th>
+                                <th rowspan="3" class="header-final" title="Экзаменационная оценка (вручную)">Экзам.</th>
+                                <th rowspan="3" class="header-final" title="Итоговая оценка (вручную)">Итог</th>
                             </tr>
                             <tr>
                                 {% for les in lessons %}
@@ -227,8 +239,8 @@
                             <tr>
                                 {% for les in lessons %}
                                     <th class="header-check" data-col="{{ loop.index0 }}">
-                                        <a href="/lesson/{{ les.id }}" class="check-btn" title="Выставить оценки / Карточка урока">✔</a>
-                                        {% if les.lesson_type in ['control', 'test'] %}
+                                        <a href="/lesson/{{ les.id }}?period_id={{ selected_period }}" class="check-btn" title="Выставить оценки / Карточка урока">✔</a>
+                                        {% if access_mode == 'full' and les.lesson_type in ['control', 'test'] %}
                                             <button type="button" 
                                                     class="btn-del-work-mini" 
                                                     onclick="deleteWorkFromJournal('{{ les.id }}')" 
@@ -243,17 +255,40 @@
                                 <tr>
                                     <td class="student-name">{{ loop.index }}. {{ st.fio }}</td>
                                     {% for les in lessons %}
+                                        {% set c_val = cell_values.get((st.id, les.id), '') %}
+                                        {% set locked_cell = (access_mode == 'attendance_only' and c_val not in ['', 'Н', 'У', 'О']) %}
                                         <td class="mark-cell" data-col="{{ loop.index0 }}">
                                             <input type="text" 
                                                    name="cell_{{ st.id }}_{{ les.id }}" 
-                                                   class="mark-input" 
-                                                   value="{{ cell_values.get((st.id, les.id), '') }}" 
+                                                   class="mark-input {% if locked_cell %}locked-cell{% endif %}" 
+                                                   value="{{ c_val }}" 
+                                                   {% if locked_cell %}readonly{% endif %}
                                                    autocomplete="off"
                                                    maxlength="7">
                                         </td>
                                     {% endfor %}
                                     <td class="stat-cell">{{ student_stats[st.id].avg }}</td>
-                                    <td class="stat-cell">{{ student_stats[st.id].period_grade }}</td>
+                                    <td class="final-cell">
+                                        <input type="text" name="final_period_{{ st.id }}" class="final-input"
+                                               value="{{ final_marks.get((st.id, 'period'), '') }}"
+                                               placeholder="{{ student_stats[st.id].suggested }}"
+                                               {% if access_mode != 'full' %}readonly{% endif %} maxlength="4" autocomplete="off">
+                                    </td>
+                                    <td class="final-cell">
+                                        <input type="text" name="final_year_{{ st.id }}" class="final-input"
+                                               value="{{ final_marks.get((st.id, 'year'), '') }}"
+                                               {% if access_mode != 'full' %}readonly{% endif %} maxlength="4" autocomplete="off">
+                                    </td>
+                                    <td class="final-cell">
+                                        <input type="text" name="final_exam_{{ st.id }}" class="final-input"
+                                               value="{{ final_marks.get((st.id, 'exam'), '') }}"
+                                               {% if access_mode != 'full' %}readonly{% endif %} maxlength="4" autocomplete="off">
+                                    </td>
+                                    <td class="final-cell">
+                                        <input type="text" name="final_final_{{ st.id }}" class="final-input"
+                                               value="{{ final_marks.get((st.id, 'final'), '') }}"
+                                               {% if access_mode != 'full' %}readonly{% endif %} maxlength="4" autocomplete="off">
+                                    </td>
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -270,27 +305,36 @@
 
 <!-- Всплывающий выбор оценки -->
 <div id="gradePickerMenu">
-    <div class="picker-title">Оценка</div>
-    <button type="button" class="picker-btn" onclick="applyPickerGrade('5')">5</button>
-    <button type="button" class="picker-btn" onclick="applyPickerGrade('4')">4</button>
-    <button type="button" class="picker-btn" onclick="applyPickerGrade('3')">3</button>
-    <button type="button" class="picker-btn" onclick="applyPickerGrade('2')">2</button>
-    <button type="button" class="picker-btn" onclick="applyPickerGrade('Н')">Н</button>
-    <button type="button" class="picker-btn" onclick="applyPickerGrade('.')">Точка (.)</button>
+    <div class="picker-title">{% if access_mode == 'full' %}Оценка{% else %}Посещаемость{% endif %}</div>
+    {% if access_mode == 'full' %}
+        <button type="button" class="picker-btn" onclick="applyPickerGrade('5')">5</button>
+        <button type="button" class="picker-btn" onclick="applyPickerGrade('4')">4</button>
+        <button type="button" class="picker-btn" onclick="applyPickerGrade('3')">3</button>
+        <button type="button" class="picker-btn" onclick="applyPickerGrade('2')">2</button>
+        <button type="button" class="picker-btn" onclick="applyPickerGrade('Н')">Н</button>
+        <button type="button" class="picker-btn" onclick="applyPickerGrade('.')">Точка (.)</button>
+    {% else %}
+        <button type="button" class="picker-btn" onclick="applyPickerGrade('Н')">Н (Не был)</button>
+        <button type="button" class="picker-btn" onclick="applyPickerGrade('У')">У (Уваж.)</button>
+        <button type="button" class="picker-btn" onclick="applyPickerGrade('О')">О (Опоздал)</button>
+    {% endif %}
     <button type="button" class="picker-btn btn-clear" onclick="applyPickerGrade('')">Очистить</button>
 </div>
 
-<!-- Скрытая форма для удаления колонки прямо из таблицы журнала -->
 <form id="deleteJournalColForm" method="POST" action="" style="display: none;">
     <input type="hidden" name="redirect_to" value="teacher">
+    <input type="hidden" name="period_id" value="{{ selected_period }}">
 </form>
 
 <script>
     let activeInput = null;
     const picker = document.getElementById('gradePickerMenu');
     const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || ('ontouchstart' in window);
+    const accessMode = "{{ access_mode }}";
 
     document.querySelectorAll('.mark-input').forEach(input => {
+        if (input.classList.contains('locked-cell')) return;
+
         if (isTouchDevice) {
             input.setAttribute('inputmode', 'none');
             input.setAttribute('readonly', 'readonly');
@@ -334,8 +378,8 @@
         let current = activeInput.value.trim();
         if (val === '') {
             activeInput.value = '';
-        } else if (val === '.') {
-            activeInput.value = '.';
+        } else if (val === '.' || accessMode !== 'full') {
+            activeInput.value = val;
         } else {
             if (current && !current.includes('/') && current !== '.') {
                 activeInput.value = current + '/' + val;
