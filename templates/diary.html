@@ -3,50 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Сетевой Город. Образование. Дневник</title>
+    <title>АСУ РСО. Электронный дневник</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: Tahoma, Arial, sans-serif; font-size: 11px; margin: 0; background: #e9edf2; color: #333; }
 
-        /* Шапка в стиле АСУ РСО */
         .top-header { background: #1c609c; color: white; padding: 7px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f4370; }
-        .logo-title { font-size: 14px; font-weight: bold; }
+        .logo-title { font-size: 13px; font-weight: bold; }
         .user-block { display: flex; gap: 12px; align-items: center; font-size: 11px; }
         .user-block a { color: #d0e4f7; text-decoration: none; }
 
-        .nav-toolbar { background: #3b7bb5; padding: 5px 15px; display: flex; gap: 12px; flex-wrap: wrap; }
-        .nav-toolbar a { color: #ffffff; text-decoration: none; font-size: 11px; padding: 3px 8px; border-radius: 2px; }
+        .nav-toolbar { background: #3b7bb5; padding: 5px 15px; display: flex; gap: 10px; }
+        .nav-toolbar a { color: #ffffff; text-decoration: none; font-size: 11px; padding: 3px 9px; border-radius: 2px; }
         .nav-toolbar a.active { background: #1c609c; font-weight: bold; }
 
-        .container { padding: 10px 14px; max-width: 1440px; margin: 0 auto; }
+        .container { padding: 12px 15px; max-width: 1400px; margin: 0 auto; }
 
-        /* Заголовок дневника */
-        .diary-header-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
-        .diary-title { font-size: 15px; font-weight: bold; color: #1c609c; }
+        .diary-info-strip {
+            background: #ffffff;
+            border: 1px solid #b8cce4;
+            padding: 8px 12px;
+            border-radius: 2px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .diary-student-title { font-size: 14px; font-weight: bold; color: #1c609c; }
+        .diary-class-badge { background: #eef3f8; border: 1px solid #7f9db9; color: #1e3a56; padding: 2px 8px; border-radius: 2px; font-weight: bold; }
 
-        /* Панель выбора ученика (для учителя/админа) */
-        .selector-panel { background: #e2e8f0; border: 1px solid #b8cce4; padding: 6px 10px; display: inline-flex; flex-wrap: wrap; gap: 10px; align-items: center; border-radius: 3px; margin-bottom: 10px; }
-        .selector-panel select, .selector-panel input { font-size: 11px; padding: 3px 6px; border: 1px solid #7f9db9; background: #fff; }
-        .btn-open { background: #28a745; color: #fff; border: 1px solid #1e7e34; font-weight: bold; padding: 3px 12px; cursor: pointer; border-radius: 2px; }
-
-        /* Навигация по неделям */
         .week-nav { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 12px; font-weight: bold; color: #333; }
-        .week-btn { display: inline-block; background: #fff; border: 1px solid #8ba0b5; color: #1c609c; text-decoration: none; padding: 2px 9px; border-radius: 2px; font-weight: bold; }
+        .week-btn { display: inline-block; background: #fff; border: 1px solid #8ba0b5; color: #1c609c; text-decoration: none; padding: 2px 10px; border-radius: 2px; font-weight: bold; }
         .week-btn:hover { background: #dce6f1; }
 
-        /* Двухколоночная сетка недели (Пн-Ср | Чт-Сб) */
         .week-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         @media (max-width: 960px) { .week-grid { grid-template-columns: 1fr; } }
         .week-col { display: flex; flex-direction: column; gap: 10px; }
 
-        /* Карточка одного учебного дня */
         .day-card { display: flex; background: #fff; border: 1px solid #a4b9cf; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
-        
-        /* Вертикальная цветная полоса дня (зелёная / синяя) */
         .day-side-bar {
             width: 24px;
             min-width: 24px;
-            background: #68b828;
+            background: #4e9a26;
             color: #ffffff;
             display: flex;
             align-items: center;
@@ -54,7 +54,7 @@
             border-right: 1px solid #8ba0b5;
             padding: 4px 0;
         }
-        .day-side-bar.today { background: #0088cc; }
+        .day-side-bar.today { background: #1c609c; }
         .day-side-text {
             writing-mode: vertical-rl;
             transform: rotate(180deg);
@@ -64,12 +64,11 @@
             letter-spacing: 0.3px;
         }
 
-        /* Таблица уроков внутри дня */
         .day-table-wrap { flex: 1; overflow-x: auto; }
         table.day-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         table.day-table th {
             background: #eef3f8;
-            color: #475569;
+            color: #334155;
             font-size: 9px;
             font-weight: bold;
             text-transform: uppercase;
@@ -78,15 +77,15 @@
             border-right: 1px solid #dce6f1;
             text-align: left;
         }
-        table.day-table th.col-num { width: 22px; text-align: center; }
-        table.day-table th.col-subj { width: 145px; }
-        table.day-table th.col-mark { width: 62px; text-align: center; border-right: none; }
+        table.day-table th.col-num { width: 24px; text-align: center; }
+        table.day-table th.col-subj { width: 155px; }
+        table.day-table th.col-mark { width: 64px; text-align: center; border-right: none; }
 
         table.day-table td {
             border-bottom: 1px solid #e2e8f0;
             border-right: 1px solid #e2e8f0;
             padding: 3px 6px;
-            height: 22px;
+            height: 23px;
             font-size: 11px;
             vertical-align: middle;
             overflow: hidden;
@@ -99,7 +98,7 @@
 
         td.cell-num { text-align: center; color: #64748b; font-size: 10px; background: #f4f7fa !important; }
         td.cell-subj { font-weight: bold; color: #1e3a56; }
-        td.cell-hw { color: #334155; white-space: normal; line-height: 1.2; }
+        td.cell-hw { color: #334155; white-space: normal; line-height: 1.25; }
         td.cell-mark { text-align: center; font-weight: bold; font-size: 12px; }
 
         /* Цвета оценок: 5 - зелёный, 4 и 3 - синий, 2 - красный */
@@ -110,225 +109,200 @@
         .g-other { color: #475569; font-weight: bold; }
         .g-tag { font-size: 8px; color: #64748b; vertical-align: super; margin-left: 1px; }
 
-        /* Вкладка Четвертные оценки */
         .quarter-card { background: #fff; border: 1px solid #8ba0b5; padding: 12px; border-radius: 2px; overflow-x: auto; }
         table.quarter-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
         table.quarter-table th, table.quarter-table td { border: 1px solid #b8cce4; padding: 5px 8px; font-size: 11px; }
         table.quarter-table th { background: #dce6f1; color: #1e3a56; text-align: center; font-weight: bold; }
-        table.quarter-table td.q-subj { font-weight: bold; text-align: left; width: 200px; }
+        table.quarter-table td.q-subj { font-weight: bold; text-align: left; width: 190px; }
         table.quarter-table td.q-marks { text-align: left; letter-spacing: 2px; font-size: 12px; }
         table.quarter-table td.q-center { text-align: center; font-weight: bold; width: 65px; font-size: 12px; }
+        table.quarter-table td.q-final { text-align: center; font-weight: bold; width: 65px; font-size: 12px; background: #f8fbff; }
+
+        .notice-box { max-width: 480px; margin: 40px auto; background: #fff; border: 1px solid #8ba0b5; padding: 18px; text-align: center; border-radius: 2px; }
+        .btn-back { display: inline-block; margin-top: 10px; background: #1c609c; color: #fff; text-decoration: none; padding: 5px 14px; border-radius: 2px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="top-header">
-    <div class="logo-title">Сетевой Город. Образование &nbsp;|&nbsp; Дневник</div>
+    <div class="logo-title">АСУ РСО &nbsp;|&nbsp; Электронный дневник</div>
     <div class="user-block">
         <span>Пользователь: <strong>{{ fio }}</strong></span>
-        {% if role != 'student' %}
-            <a href="/teacher">В журнал</a>
-        {% endif %}
         <a href="/logout">Выход</a>
     </div>
 </div>
 
+{% if not is_student %}
+    <div class="notice-box">
+        <h3 style="margin-top:0; color:#1c609c;">Доступ только для учеников</h3>
+        <p>Каждый ученик входит в свой личный дневник по индивидуальному логину и паролю.</p>
+        <a href="/teacher" class="btn-back">Перейти в классный журнал</a>
+    </div>
+{% else %}
+
 <div class="nav-toolbar">
-    <a href="/diary?tab=diary&class_id={{ selected_class or '' }}&student_id={{ selected_student or '' }}&date={{ selected_date }}&period_id={{ selected_period or '' }}"
-       class="{% if active_tab == 'diary' %}active{% endif %}">Дневник</a>
-    <a href="/diary?tab=grades&class_id={{ selected_class or '' }}&student_id={{ selected_student or '' }}&date={{ selected_date }}&period_id={{ selected_period or '' }}"
-       class="{% if active_tab == 'grades' %}active{% endif %}">Четвертные оценки</a>
+    <a href="/diary?tab=diary&date={{ selected_date }}&period_id={{ selected_period or '' }}"
+       class="{% if active_tab == 'diary' %}active{% endif %}">Расписание и задания</a>
+    <a href="/diary?tab=grades&date={{ selected_date }}&period_id={{ selected_period or '' }}"
+       class="{% if active_tab == 'grades' %}active{% endif %}">Итоговые оценки</a>
 </div>
 
 <div class="container">
-    <div class="diary-header-bar">
-        <div class="diary-title">
-            Дневник: {{ student_fio }}{% if class_name %}, {{ class_name }}{% endif %}
-        </div>
+    <div class="diary-info-strip">
+        <div class="diary-student-title">Личный дневник: {{ fio }}</div>
+        {% if class_name %}
+            <div class="diary-class-badge">Класс: {{ class_name }}</div>
+        {% endif %}
     </div>
 
-    {% if role != 'student' %}
-    <form method="GET" action="/diary" class="selector-panel" id="diaryFilterForm">
-        <input type="hidden" name="tab" value="{{ active_tab }}">
-        <label><strong>Класс:</strong></label>
-        <select name="class_id" onchange="document.getElementById('diaryFilterForm').submit();">
-            <option value="">Выберите класс...</option>
-            {% for c in classes %}
-                <option value="{{ c.id }}" {% if selected_class == c.id %}selected{% endif %}>{{ c.name }}</option>
-            {% endfor %}
-        </select>
-
-        <label><strong>Ученик:</strong></label>
-        <select name="student_id">
-            <option value="">Выберите ученика...</option>
-            {% for st in students %}
-                <option value="{{ st.id }}" {% if selected_student == st.id %}selected{% endif %}>{{ st.fio }}</option>
-            {% endfor %}
-        </select>
-
-        <label><strong>Дата:</strong></label>
-        <input type="date" name="date" value="{{ selected_date }}">
-        <button type="submit" class="btn-open">Показать</button>
-    </form>
-    {% endif %}
-
     {% if active_tab == 'diary' %}
-        <!-- ПЕРЕКЛЮЧАТЕЛЬ НЕДЕЛЬ -->
         <div class="week-nav">
-            <a class="week-btn" href="/diary?tab=diary&class_id={{ selected_class or '' }}&student_id={{ selected_student or '' }}&date={{ prev_week_date }}&period_id={{ selected_period or '' }}">←</a>
-            <span>Неделя: {{ week_range_str }}</span>
-            <a class="week-btn" href="/diary?tab=diary&class_id={{ selected_class or '' }}&student_id={{ selected_student or '' }}&date={{ next_week_date }}&period_id={{ selected_period or '' }}">→</a>
+            <a class="week-btn" href="/diary?tab=diary&date={{ prev_week_date }}&period_id={{ selected_period or '' }}">← Предыдущая</a>
+            <span>Учебная неделя: {{ week_range_str }}</span>
+            <a class="week-btn" href="/diary?tab=diary&date={{ next_week_date }}&period_id={{ selected_period or '' }}">Следующая →</a>
         </div>
 
-        {% if selected_class %}
-            <div class="week-grid">
-                <!-- ЛЕВАЯ КОЛОНКА: ПН, ВТ, СР -->
-                <div class="week-col">
-                    {% for day in left_days %}
-                        <div class="day-card">
-                            <div class="day-side-bar {% if day.is_today %}today{% endif %}">
-                                <span class="day-side-text">{{ day.title }}</span>
-                            </div>
-                            <div class="day-table-wrap">
-                                <table class="day-table">
-                                    <thead>
-                                        <tr>
-                                            <th class="col-num">№</th>
-                                            <th class="col-subj">УРОК</th>
-                                            <th>ДОМАШНЕЕ ЗАДАНИЕ</th>
-                                            <th class="col-mark">ОЦЕНКА</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for s in day.slots %}
-                                            <tr>
-                                                <td class="cell-num">{{ s.num }}</td>
-                                                <td class="cell-subj" title="{{ s.subject }}">{{ s.subject }}</td>
-                                                <td class="cell-hw">{{ s.homework }}</td>
-                                                <td class="cell-mark">
-                                                    {% for g in s.grades %}
-                                                        {% set cls = 'g-' + g.val if g.val in ['2','3','4','5'] else 'g-other' %}
-                                                        <span class="{{ cls }}">{{ g.val }}</span>{% if g.tag %}<span class="g-tag">{{ g.tag }}</span>{% endif %}{% if not loop.last %}/{% endif %}
-                                                    {% endfor %}
-                                                </td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
+        <div class="week-grid">
+            <!-- ЛЕВАЯ КОЛОНКА: ПН, ВТ, СР -->
+            <div class="week-col">
+                {% for day in left_days %}
+                    <div class="day-card">
+                        <div class="day-side-bar {% if day.is_today %}today{% endif %}">
+                            <span class="day-side-text">{{ day.title }}</span>
                         </div>
-                    {% endfor %}
-                </div>
-
-                <!-- ПРАВАЯ КОЛОНКА: ЧТ, ПТ, СБ -->
-                <div class="week-col">
-                    {% for day in right_days %}
-                        <div class="day-card">
-                            <div class="day-side-bar {% if day.is_today %}today{% endif %}">
-                                <span class="day-side-text">{{ day.title }}</span>
-                            </div>
-                            <div class="day-table-wrap">
-                                <table class="day-table">
-                                    <thead>
+                        <div class="day-table-wrap">
+                            <table class="day-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-num">№</th>
+                                        <th class="col-subj">УРОК</th>
+                                        <th>ДОМАШНЕЕ ЗАДАНИЕ</th>
+                                        <th class="col-mark">ОЦЕНКА</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for s in day.slots %}
                                         <tr>
-                                            <th class="col-num">№</th>
-                                            <th class="col-subj">УРОК</th>
-                                            <th>ДОМАШНЕЕ ЗАДАНИЕ</th>
-                                            <th class="col-mark">ОЦЕНКА</th>
+                                            <td class="cell-num">{{ s.num }}</td>
+                                            <td class="cell-subj" title="{{ s.subject }}">{{ s.subject }}</td>
+                                            <td class="cell-hw">{{ s.homework }}</td>
+                                            <td class="cell-mark">
+                                                {% for g in s.grades %}
+                                                    {% set cls = 'g-' + g.val if g.val in ['2','3','4','5'] else 'g-other' %}
+                                                    <span class="{{ cls }}">{{ g.val }}</span>{% if g.tag %}<span class="g-tag">{{ g.tag }}</span>{% endif %}{% if not loop.last %}/{% endif %}
+                                                {% endfor %}
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for s in day.slots %}
-                                            <tr>
-                                                <td class="cell-num">{{ s.num }}</td>
-                                                <td class="cell-subj" title="{{ s.subject }}">{{ s.subject }}</td>
-                                                <td class="cell-hw">{{ s.homework }}</td>
-                                                <td class="cell-mark">
-                                                    {% for g in s.grades %}
-                                                        {% set cls = 'g-' + g.val if g.val in ['2','3','4','5'] else 'g-other' %}
-                                                        <span class="{{ cls }}">{{ g.val }}</span>{% if g.tag %}<span class="g-tag">{{ g.tag }}</span>{% endif %}{% if not loop.last %}/{% endif %}
-                                                    {% endfor %}
-                                                </td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
-                    {% endfor %}
-                </div>
+                    </div>
+                {% endfor %}
             </div>
-        {% else %}
-            <div class="quarter-card">Выберите класс и ученика сверху, чтобы открыть дневник.</div>
-        {% endif %}
+
+            <!-- ПРАВАЯ КОЛОНКА: ЧТ, ПТ, СБ -->
+            <div class="week-col">
+                {% for day in right_days %}
+                    <div class="day-card">
+                        <div class="day-side-bar {% if day.is_today %}today{% endif %}">
+                            <span class="day-side-text">{{ day.title }}</span>
+                        </div>
+                        <div class="day-table-wrap">
+                            <table class="day-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-num">№</th>
+                                        <th class="col-subj">УРОК</th>
+                                        <th>ДОМАШНЕЕ ЗАДАНИЕ</th>
+                                        <th class="col-mark">ОЦЕНКА</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for s in day.slots %}
+                                        <tr>
+                                            <td class="cell-num">{{ s.num }}</td>
+                                            <td class="cell-subj" title="{{ s.subject }}">{{ s.subject }}</td>
+                                            <td class="cell-hw">{{ s.homework }}</td>
+                                            <td class="cell-mark">
+                                                {% for g in s.grades %}
+                                                    {% set cls = 'g-' + g.val if g.val in ['2','3','4','5'] else 'g-other' %}
+                                                    <span class="{{ cls }}">{{ g.val }}</span>{% if g.tag %}<span class="g-tag">{{ g.tag }}</span>{% endif %}{% if not loop.last %}/{% endif %}
+                                                {% endfor %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
 
     {% else %}
-        <!-- ВКЛАДКА: ЧЕТВЕРТНЫЕ / ИТОГОВЫЕ ОЦЕНКИ -->
+        <!-- ВКЛАДКА: ИТОГОВЫЕ И ЧЕТВЕРТНЫЕ ОЦЕНКИ -->
         <div class="quarter-card">
             <form method="GET" action="/diary" style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
                 <input type="hidden" name="tab" value="grades">
-                {% if role != 'student' %}
-                    <input type="hidden" name="class_id" value="{{ selected_class or '' }}">
-                    <input type="hidden" name="student_id" value="{{ selected_student or '' }}">
-                {% endif %}
                 <input type="hidden" name="date" value="{{ selected_date }}">
-                <label><strong>Учебный период:</strong></label>
-                <select name="period_id" onchange="this.form.submit()">
+                <label><strong>Текущие оценки за период:</strong></label>
+                <select name="period_id" onchange="this.form.submit()" style="font-size:11px; padding:3px 6px; border:1px solid #7f9db9;">
                     {% for p in periods %}
                         <option value="{{ p.id }}" {% if selected_period == p.id %}selected{% endif %}>{{ p.name }}</option>
                     {% endfor %}
                 </select>
             </form>
 
-            {% if selected_class and selected_student %}
-                <table class="quarter-table">
-                    <thead>
-                        <tr>
-                            <th style="text-align:left;">Предмет</th>
-                            <th style="text-align:left;">Текущие оценки за период</th>
-                            <th>Ср. балл</th>
-                            <th>Период</th>
-                            <th>Год</th>
-                            <th>Экзамен</th>
-                            <th>Итог</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in quarter_summary %}
-                            <tr>
-                                <td class="q-subj">{{ row.subject }}</td>
-                                <td class="q-marks">
-                                    {% for m in row.marks %}
-                                        {% set cls = 'g-' + m if m in ['2','3','4','5'] else 'g-other' %}
-                                        <span class="{{ cls }}">{{ m }}</span>
-                                    {% endfor %}
-                                </td>
-                                <td class="q-center">{{ row.avg }}</td>
-                                <td class="q-center">
-                                    {% set cls_p = 'g-' + row.period_grade if row.period_grade in ['2','3','4','5'] else '' %}
-                                    <span class="{{ cls_p }}">{{ row.period_grade }}</span>
-                                </td>
-                                <td class="q-center">
-                                    {% set cls_y = 'g-' + row.year_grade if row.year_grade in ['2','3','4','5'] else '' %}
-                                    <span class="{{ cls_y }}">{{ row.year_grade }}</span>
-                                </td>
-                                <td class="q-center">
-                                    {% set cls_e = 'g-' + row.exam_grade if row.exam_grade in ['2','3','4','5'] else '' %}
-                                    <span class="{{ cls_e }}">{{ row.exam_grade }}</span>
-                                </td>
-                                <td class="q-center">
-                                    {% set cls_f = 'g-' + row.final_grade if row.final_grade in ['2','3','4','5'] else '' %}
-                                    <span class="{{ cls_f }}">{{ row.final_grade }}</span>
-                                </td>
-                            </tr>
+            <table class="quarter-table">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">Предмет</th>
+                        <th style="text-align:left;">Текущие оценки за выбранный период</th>
+                        <th>Ср. балл</th>
+                        {% for p in periods %}
+                            <th>{{ p.name }}</th>
                         {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p>Выберите класс и ученика для просмотра оценок.</p>
-            {% endif %}
+                        <th>Год</th>
+                        <th>Экзам.</th>
+                        <th>Итог</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in quarter_summary %}
+                        <tr>
+                            <td class="q-subj">{{ row.subject }}</td>
+                            <td class="q-marks">
+                                {% for m in row.marks %}
+                                    {% set cls = 'g-' + m if m in ['2','3','4','5'] else 'g-other' %}
+                                    <span class="{{ cls }}">{{ m }}</span>
+                                {% endfor %}
+                            </td>
+                            <td class="q-center">{{ row.avg }}</td>
+                            {% for p in periods %}
+                                {% set pg = row.periods_grades.get(p.id, '') %}
+                                {% set cls_p = 'g-' + pg if pg in ['2','3','4','5'] else '' %}
+                                <td class="q-final"><span class="{{ cls_p }}">{{ pg }}</span></td>
+                            {% endfor %}
+                            <td class="q-final">
+                                {% set cls_y = 'g-' + row.year_grade if row.year_grade in ['2','3','4','5'] else '' %}
+                                <span class="{{ cls_y }}">{{ row.year_grade }}</span>
+                            </td>
+                            <td class="q-final">
+                                {% set cls_e = 'g-' + row.exam_grade if row.exam_grade in ['2','3','4','5'] else '' %}
+                                <span class="{{ cls_e }}">{{ row.exam_grade }}</span>
+                            </td>
+                            <td class="q-final">
+                                {% set cls_f = 'g-' + row.final_grade if row.final_grade in ['2','3','4','5'] else '' %}
+                                <span class="{{ cls_f }}">{{ row.final_grade }}</span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     {% endif %}
 </div>
+{% endif %}
 </body>
 </html>
