@@ -348,7 +348,7 @@ def schedule_panel():
 
             cur_date = start_dt
             while cur_date <= end_dt:
-                if cur_date.weekday() < 5:
+                if cur_date.weekday() < 6:
                     d_str = cur_date.isoformat()
                     field_name = f"lesson_num_{d_str}"
                     lesson_num = request.form.get(field_name)
@@ -405,10 +405,10 @@ def schedule_panel():
             for row in cur.fetchall():
                 lessons_map[row["lesson_date"]] = row["lesson_number"]
 
-            weekdays_ru = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница"]
+            weekdays_ru = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"]
             cur_date = start_dt
             while cur_date <= end_dt:
-                if cur_date.weekday() < 5:
+                if cur_date.weekday() < 6:
                     d_str = cur_date.isoformat()
                     days_list.append({
                         "date": d_str,
@@ -432,7 +432,7 @@ def schedule_panel():
     )
 
 
-# --- ЖУРНАЛ УЧИТЕЛЯ ---
+# --- КЛАССНЫЙ ЖУРНАЛ ---
 @app.route("/teacher", methods=["GET", "POST"])
 def teacher_panel():
     if "user_id" not in session or session.get("role") == "student":
@@ -474,7 +474,6 @@ def teacher_panel():
                         exist_class = cur.fetchone()
 
                         if access == "attendance_only":
-                            # Чужой предмет: разрешено только ставить/удалять Н, У, О
                             if val_class in ["Н", "У", "О"]:
                                 if not exist_class or exist_class["grade"] in ["Н", "У", "О"]:
                                     if exist_class:
@@ -485,7 +484,6 @@ def teacher_panel():
                                 cur.execute("DELETE FROM grades WHERE id = %s", (exist_class["id"],))
                             continue
 
-                        # Полный доступ (предметник по своему предмету, классный руководитель или админ)
                         if val_class in ["2", "3", "4", "5", "Н", "У", "О", "."]:
                             if exist_class:
                                 cur.execute("UPDATE grades SET grade = %s, weight = %s WHERE id = %s", (val_class, w_class, exist_class["id"]))
@@ -506,31 +504,29 @@ def teacher_panel():
                             if exist_hw:
                                 cur.execute("DELETE FROM grades WHERE id = %s", (exist_hw["id"],))
 
-                # Сохранение ручных итоговых оценок (четверть, год, экзамен, итоговая)
-                elif key.startswith("final_") and access == "full":
+                # Сохранение четвертной оценки за выбранный период
+                elif key.startswith("final_period_") and access == "full":
                     parts = key.split("_")
                     if len(parts) == 3:
-                        f_type, st_id = parts[1], int(parts[2])
+                        st_id = int(parts[2])
                         f_val = val.strip()
-                        target_period = p_id if f_type == "period" else 0
-
                         if f_val:
                             cur.execute("""
                                 INSERT INTO final_grades (student_id, subject_id, period_id, grade_type, grade)
-                                VALUES (%s, %s, %s, %s, %s)
+                                VALUES (%s, %s, %s, 'period', %s)
                                 ON CONFLICT (student_id, subject_id, period_id, grade_type)
                                 DO UPDATE SET grade = EXCLUDED.grade
-                            """, (st_id, s_id, target_period, f_type, f_val))
+                            """, (st_id, s_id, p_id, f_val))
                         else:
                             cur.execute("""
                                 DELETE FROM final_grades 
-                                WHERE student_id = %s AND subject_id = %s AND period_id = %s AND grade_type = %s
-                            """, (st_id, s_id, target_period, f_type))
+                                WHERE student_id = %s AND subject_id = %s AND period_id = %s AND grade_type = 'period'
+                            """, (st_id, s_id, p_id))
 
             conn.commit()
             cur.close()
             conn.close()
-            flash("Журнал и итоговые оценки сохранены!", "success")
+            flash("Журнал и оценки за период сохранены!", "success")
             return redirect(url_for("teacher_panel", class_id=c_id, subject_id=s_id, period_id=p_id))
 
     cur.execute("SELECT * FROM classes ORDER BY name")
@@ -539,7 +535,6 @@ def teacher_panel():
     cur.execute("SELECT * FROM periods ORDER BY start_date")
     periods = cur.fetchall()
 
-    # Если выбран класс, но выбранный предмет не входит в предметы этого класса — сбрасываем subject_id
     valid_sub_ids = {s["id"] for s in subjects}
     if subject_id and valid_sub_ids and subject_id not in valid_sub_ids:
         subject_id = None
@@ -614,13 +609,12 @@ def teacher_panel():
             elif g_hw:
                 cell_values[key] = f"/{g_hw}"
 
-        # Загружаем ручные итоговые оценки (за выбранный период и годовые/экзаменационные/итоговые)
         cur.execute("""
-            SELECT student_id, grade_type, grade FROM final_grades
-            WHERE subject_id = %s AND (period_id = %s OR period_id = 0)
+            SELECT student_id, grade FROM final_grades
+            WHERE subject_id = %s AND period_id = %s AND grade_type = 'period'
         """, (subject_id, period_id))
         for fg in cur.fetchall():
-            final_marks[(fg["student_id"], fg["grade_type"])] = fg["grade"]
+            final_marks[fg["student_id"]] = fg["grade"]
 
         valid_lesson_ids = {l["id"] for l in lessons}
         for st in students:
@@ -668,6 +662,181 @@ def teacher_panel():
         student_stats=student_stats,
         final_marks=final_marks,
         access_mode=access_mode
+    )
+
+
+# --- ВКЛАДКА "ИТОГИ" (ЧЕТВЕРТИ, ГОД, ЭКЗАМЕН, ИТОГ) ---
+@app.route("/totals", methods=["GET", "POST"])
+def totals_panel():
+    if "user_id" not in session or session.get("role") == "student":
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    user_id = session.get("user_id")
+    role = session.get("role")
+
+    homeroom_class_id = None
+    teacher_sub_ids = set()
+
+    if role == "teacher":
+        cur.execute("SELECT homeroom_class_id FROM users WHERE id = %s", (user_id,))
+        u_row = cur.fetchone()
+        if u_row and u_row.get("homeroom_class_id"):
+            homeroom_class_id = int(u_row["homeroom_class_id"])
+
+        cur.execute("SELECT subject_id FROM teacher_subjects WHERE user_id = %s", (user_id,))
+        teacher_sub_ids = {int(r["subject_id"]) for r in cur.fetchall()}
+
+    class_id = request.args.get("class_id", type=int) or request.form.get("class_id", type=int)
+    subject_id = request.args.get("subject_id", type=int) or request.form.get("subject_id", type=int)
+
+    if not class_id and homeroom_class_id:
+        class_id = homeroom_class_id
+
+    if request.method == "POST":
+        c_id = request.form.get("class_id", type=int)
+        s_id = request.form.get("subject_id", type=int)
+
+        if c_id and s_id:
+            access = check_teacher_access(cur, user_id, role, c_id, s_id)
+            if access != "full":
+                flash("У вас нет прав выставлять итоговые оценки по этому предмету!", "error")
+            else:
+                for key, val in request.form.items():
+                    f_val = val.strip()
+                    # Четвертные оценки: period_<period_id>_<student_id>
+                    if key.startswith("period_"):
+                        parts = key.split("_")
+                        if len(parts) == 3:
+                            p_id, st_id = int(parts[1]), int(parts[2])
+                            if f_val:
+                                cur.execute("""
+                                    INSERT INTO final_grades (student_id, subject_id, period_id, grade_type, grade)
+                                    VALUES (%s, %s, %s, 'period', %s)
+                                    ON CONFLICT (student_id, subject_id, period_id, grade_type)
+                                    DO UPDATE SET grade = EXCLUDED.grade
+                                """, (st_id, s_id, p_id, f_val))
+                            else:
+                                cur.execute("""
+                                    DELETE FROM final_grades
+                                    WHERE student_id = %s AND subject_id = %s AND period_id = %s AND grade_type = 'period'
+                                """, (st_id, s_id, p_id))
+
+                    # Год, экзамен, итог: final_<type>_<student_id>
+                    elif key.startswith("final_"):
+                        parts = key.split("_")
+                        if len(parts) == 3:
+                            f_type, st_id = parts[1], int(parts[2])
+                            if f_type in ("year", "exam", "final"):
+                                if f_val:
+                                    cur.execute("""
+                                        INSERT INTO final_grades (student_id, subject_id, period_id, grade_type, grade)
+                                        VALUES (%s, %s, 0, %s, %s)
+                                        ON CONFLICT (student_id, subject_id, period_id, grade_type)
+                                        DO UPDATE SET grade = EXCLUDED.grade
+                                    """, (st_id, s_id, f_type, f_val))
+                                else:
+                                    cur.execute("""
+                                        DELETE FROM final_grades
+                                        WHERE student_id = %s AND subject_id = %s AND period_id = 0 AND grade_type = %s
+                                    """, (st_id, s_id, f_type))
+
+                conn.commit()
+                flash("Итоговые оценки успешно сохранены и обновлены в дневниках учеников!", "success")
+
+        cur.close()
+        conn.close()
+        return redirect(url_for("totals_panel", class_id=c_id, subject_id=s_id))
+
+    cur.execute("SELECT * FROM classes ORDER BY name")
+    all_classes = cur.fetchall()
+
+    # Доступные классы для выставления итогов
+    if role == "admin" or teacher_sub_ids:
+        available_classes = all_classes
+    elif homeroom_class_id:
+        available_classes = [c for c in all_classes if c["id"] == homeroom_class_id]
+    else:
+        available_classes = []
+
+    # Доступные предметы для выбранного класса
+    available_subjects = []
+    if class_id:
+        class_subs = get_subjects_for_class(cur, class_id)
+        if role == "admin" or (homeroom_class_id and int(class_id) == homeroom_class_id):
+            available_subjects = class_subs
+        else:
+            available_subjects = [s for s in class_subs if s["id"] in teacher_sub_ids]
+
+    valid_sub_ids = {s["id"] for s in available_subjects}
+    if subject_id and subject_id not in valid_sub_ids:
+        subject_id = None
+
+    cur.execute("SELECT * FROM periods ORDER BY start_date")
+    periods = cur.fetchall()
+
+    students = []
+    period_avgs = {}
+    saved_totals = {}
+    can_edit = False
+
+    if class_id and subject_id:
+        can_edit = (check_teacher_access(cur, user_id, role, class_id, subject_id) == "full")
+        cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (class_id,))
+        students = cur.fetchall()
+
+        # Считаем средний балл каждого ученика по каждой четверти
+        for p in periods:
+            cur.execute("""
+                SELECT g.student_id, g.grade, g.weight
+                FROM grades g
+                JOIN lessons l ON g.lesson_id = l.id
+                WHERE l.class_id = %s AND l.subject_id = %s AND l.lesson_date BETWEEN %s AND %s
+            """, (class_id, subject_id, p["start_date"], p["end_date"]))
+            scores = {}
+            weights = {}
+            for r in cur.fetchall():
+                if r["grade"] in ["2", "3", "4", "5"]:
+                    st_i = r["student_id"]
+                    w = r["weight"] if r["weight"] else 1
+                    scores[st_i] = scores.get(st_i, 0.0) + int(r["grade"]) * w
+                    weights[st_i] = weights.get(st_i, 0) + w
+
+            for st in students:
+                st_i = st["id"]
+                if weights.get(st_i, 0) > 0:
+                    period_avgs[(st_i, p["id"])] = f"{round(scores[st_i] / weights[st_i], 2):.2f}"
+                else:
+                    period_avgs[(st_i, p["id"])] = "-"
+
+        # Загружаем сохранённые ручные оценки
+        cur.execute("""
+            SELECT student_id, period_id, grade_type, grade
+            FROM final_grades
+            WHERE subject_id = %s
+        """, (subject_id,))
+        for fg in cur.fetchall():
+            saved_totals[(fg["student_id"], fg["period_id"], fg["grade_type"])] = fg["grade"]
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "totals.html",
+        fio=session.get("fio"),
+        role=role,
+        homeroom_class_id=homeroom_class_id,
+        classes=available_classes,
+        subjects=available_subjects,
+        periods=periods,
+        selected_class=class_id,
+        selected_subject=subject_id,
+        students=students,
+        period_avgs=period_avgs,
+        saved_totals=saved_totals,
+        can_edit=can_edit
     )
 
 
@@ -893,22 +1062,27 @@ def edit_lesson(lesson_id):
     )
 
 
-# --- ЭЛЕКТРОННЫЙ ДНЕВНИК УЧЕНИКА ---
+# --- ЛИЧНЫЙ ЭЛЕКТРОННЫЙ ДНЕВНИК УЧЕНИКА ---
 @app.route("/diary")
 def student_diary():
     if "user_id" not in session:
         return redirect(url_for("login"))
 
+    role = session.get("role")
+    if role != "student":
+        return render_template(
+            "diary.html",
+            role=role,
+            fio=session.get("fio", ""),
+            is_student=False
+        )
+
     conn = get_db()
     cur = conn.cursor()
 
-    role = session.get("role")
-    if role == "student":
-        class_id = session.get("class_id")
-        student_id = session.get("student_id")
-    else:
-        class_id = request.args.get("class_id", type=int)
-        student_id = request.args.get("student_id", type=int)
+    class_id = session.get("class_id")
+    student_id = session.get("student_id")
+    student_fio = session.get("fio", "")
 
     selected_date_str = request.args.get("date", datetime.date.today().isoformat())
     try:
@@ -920,29 +1094,16 @@ def student_diary():
     selected_period = request.args.get("period_id", type=int)
     active_tab = request.args.get("tab", "diary")  # 'diary' или 'grades'
 
-    cur.execute("SELECT * FROM classes ORDER BY name")
-    classes = cur.fetchall()
+    cur.execute("SELECT name FROM classes WHERE id = %s", (class_id,))
+    c_row = cur.fetchone()
+    class_name = c_row["name"] if c_row else ""
 
     cur.execute("SELECT * FROM periods ORDER BY start_date")
     periods = cur.fetchall()
     if not selected_period and periods:
-        selected_period = periods[0]["id"]
-
-    students = []
-    student_fio = session.get("fio", "")
-    class_name = ""
-
-    if class_id:
-        cur.execute("SELECT name FROM classes WHERE id = %s", (class_id,))
-        c_row = cur.fetchone()
-        class_name = c_row["name"] if c_row else ""
-
-        cur.execute("SELECT * FROM students WHERE class_id = %s ORDER BY fio", (class_id,))
-        students = cur.fetchall()
-        if student_id:
-            st_obj = next((s for s in students if s["id"] == student_id), None)
-            if st_obj:
-                student_fio = st_obj["fio"]
+        today_iso = datetime.date.today().isoformat()
+        cur_p = next((p for p in periods if p["start_date"] <= today_iso <= p["end_date"]), None)
+        selected_period = cur_p["id"] if cur_p else periods[0]["id"]
 
     # Расчёт недели (Понедельник - Суббота)
     monday = sel_dt - datetime.timedelta(days=sel_dt.weekday())
@@ -983,7 +1144,6 @@ def student_diary():
             for g in cur.fetchall():
                 grades_by_lesson.setdefault(g["lesson_id"], []).append(g)
 
-        # Группируем уроки по датам
         lessons_by_date = {}
         extra_by_date_subj = {}
         for l in week_lessons:
@@ -1036,7 +1196,7 @@ def student_diary():
             else:
                 right_days.append(day_block)
 
-    # Данные для вкладки "Четвертные оценки"
+    # Вкладка "Итоговые оценки": все предметы класса, все четверти, Год, Экзамен, Итог
     quarter_summary = []
     if class_id and student_id:
         class_subjects = get_subjects_for_class(cur, class_id)
@@ -1079,11 +1239,15 @@ def student_diary():
 
             avg_val = f"{round(sc / wt, 2):.2f}" if wt > 0 else "-"
 
+            all_periods_grades = {}
+            for p in periods:
+                all_periods_grades[p["id"]] = fg_map.get((sub_id, p["id"], "period"), "")
+
             quarter_summary.append({
                 "subject": sub["name"],
                 "marks": marks_list,
                 "avg": avg_val,
-                "period_grade": fg_map.get((sub_id, selected_period or 0, "period"), ""),
+                "periods_grades": all_periods_grades,
                 "year_grade": fg_map.get((sub_id, 0, "year"), ""),
                 "exam_grade": fg_map.get((sub_id, 0, "exam"), ""),
                 "final_grade": fg_map.get((sub_id, 0, "final"), "")
@@ -1094,15 +1258,11 @@ def student_diary():
 
     return render_template(
         "diary.html",
-        fio=session.get("fio"),
-        student_fio=student_fio,
+        is_student=True,
+        fio=student_fio,
         class_name=class_name,
         role=role,
-        classes=classes,
-        students=students,
         periods=periods,
-        selected_class=class_id,
-        selected_student=student_id,
         selected_date=selected_date_str,
         selected_period=selected_period,
         active_tab=active_tab,
