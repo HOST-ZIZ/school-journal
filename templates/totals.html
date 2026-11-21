@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>АСУ РСО. Итоговые оценки</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Tahoma, Arial, sans-serif; font-size: 11px; margin: 0; background: #e9edf2; color: #333; }
+
+        .top-header { background: #1c609c; color: white; padding: 6px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f4370; }
+        .logo-title { font-size: 13px; font-weight: bold; }
+        .user-block { display: flex; gap: 12px; font-size: 11px; }
+        .user-block a { color: #d0e4f7; text-decoration: none; }
+
+        .nav-toolbar { background: #3b7bb5; padding: 4px 15px; display: flex; gap: 12px; }
+        .nav-toolbar a { color: #ffffff; text-decoration: none; font-size: 11px; padding: 2px 6px; }
+        .nav-toolbar a.active { background: #1c609c; font-weight: bold; border-radius: 2px; }
+
+        .container { padding: 10px 15px; }
+        .page-title-bar { display: flex; align-items: baseline; gap: 15px; margin-bottom: 8px; }
+        .page-heading { font-size: 16px; font-weight: bold; color: #1c609c; }
+        .page-subtitle { color: #666; font-size: 11px; }
+
+        .filter-panel { background: #e2e8f0; border: 1px solid #b8cce4; padding: 6px 12px; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 15px; border-radius: 3px; margin-bottom: 12px; }
+        .filter-group { display: inline-flex; align-items: center; gap: 5px; }
+        .filter-group label { font-weight: bold; font-size: 11px; color: #333; }
+        select { font-size: 11px; padding: 3px 6px; border: 1px solid #7f9db9; background: #fff; }
+        button.btn-load { background: #28a745; color: white; border: 1px solid #1e7e34; font-weight: bold; cursor: pointer; padding: 3px 12px; border-radius: 2px; }
+        button.btn-save { background: #007bff; color: white; border: 1px solid #0056b3; font-weight: bold; cursor: pointer; padding: 6px 18px; font-size: 11px; border-radius: 2px; margin-top: 10px; }
+
+        .role-hint { background: #e7f1fb; border: 1px solid #b8cce4; color: #0f4370; padding: 6px 10px; border-radius: 2px; margin-bottom: 10px; display: inline-block; }
+
+        .table-wrap { display: inline-block; background: #fff; border: 1px solid #8ba0b5; box-shadow: 0 1px 4px rgba(0,0,0,0.1); max-width: 100%; overflow-x: auto; }
+        table.totals-grid { border-collapse: collapse; border-spacing: 0; }
+        table.totals-grid th, table.totals-grid td { border: 1px solid #b8cce4; padding: 0; text-align: center; }
+
+        th.th-student { background: #dce6f1; width: 210px; min-width: 210px; text-align: left; padding: 6px 8px; font-weight: bold; }
+        th.th-period { background: #e6eef8; min-width: 90px; padding: 4px 6px; font-weight: bold; }
+        th.th-final { background: #d0dfef; width: 65px; min-width: 65px; padding: 4px 6px; font-weight: bold; color: #0f4370; }
+        th.th-sub { background: #f2f6fa; font-size: 9px; color: #64748b; padding: 2px 4px; font-weight: normal; }
+
+        td.td-student { text-align: left; padding: 5px 8px; background: #fff; font-size: 11px; }
+        tr:hover td.td-student { background: #fce8b2; }
+
+        td.td-avg { background: #f8fafc; width: 44px; font-size: 11px; color: #475569; font-weight: bold; }
+        td.td-input { width: 46px; height: 28px; background: #fff; }
+        td.td-final-input { width: 65px; height: 28px; background: #f8fbff; }
+
+        input.grade-box {
+            width: 100%;
+            height: 27px;
+            border: none;
+            outline: none;
+            background: transparent;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            font-family: Tahoma, Arial, sans-serif;
+            padding: 0;
+        }
+        input.grade-box:focus { background: #fffde7 !important; }
+
+        .grade-color-5 { color: #1b8a2e !important; }
+        .grade-color-4, .grade-color-3 { color: #1565c0 !important; }
+        .grade-color-2 { color: #d32f2f !important; }
+
+        .flash-msg { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 6px 12px; margin-bottom: 10px; font-size: 12px; }
+        .flash-error { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+    </style>
+</head>
+<body>
+
+<div class="top-header">
+    <div class="logo-title">АСУ РСО &nbsp;|&nbsp; Итоговые оценки</div>
+    <div class="user-block">
+        <span>Пользователь: <strong>{{ fio }}</strong></span>
+        {% if role == 'admin' %}
+            <a href="/admin">Администрирование</a>
+            <a href="/schedule">Расписание</a>
+        {% endif %}
+        <a href="/logout">Выход</a>
+    </div>
+</div>
+
+<div class="nav-toolbar">
+    <a href="/teacher?class_id={{ selected_class or '' }}&subject_id={{ selected_subject or '' }}">Журнал</a>
+    <a href="/totals" class="active">Итоги</a>
+    <a href="/report?class_id={{ selected_class or '' }}">Отчеты / Ведомость</a>
+</div>
+
+<div class="container">
+    <div class="page-title-bar">
+        <span class="page-heading">Выставление итоговых оценок</span>
+        <span class="page-subtitle">Четвертные, годовые, экзаменационные и итоговые оценки (ручной ввод)</span>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for cat, msg in messages %}
+                <div class="flash-msg {% if cat == 'error' %}flash-error{% endif %}">{{ msg }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if homeroom_class_id and selected_class == homeroom_class_id %}
+        <div>
+            <div class="role-hint">
+                <strong>Режим классного руководителя:</strong> Для вашего класса открыты все предметы учебного плана — вы можете выставлять итоговые оценки по любому предмету.
+            </div>
+        </div>
+    {% endif %}
+
+    <form method="GET" action="/totals" class="filter-panel" id="totalsFilterForm">
+        <div class="filter-group">
+            <label>Класс:</label>
+            <select name="class_id" required onchange="document.getElementById('totalsFilterForm').submit();">
+                <option value="">Выберите класс...</option>
+                {% for c in classes %}
+                    <option value="{{ c.id }}" {% if selected_class == c.id %}selected{% endif %}>
+                        {{ c.name }}{% if homeroom_class_id == c.id %} (Ваш класс){% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Предмет:</label>
+            <select name="subject_id" required>
+                <option value="">Выберите предмет...</option>
+                {% for s in subjects %}
+                    <option value="{{ s.id }}" {% if selected_subject == s.id %}selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="btn-load">Открыть</button>
+    </form>
+
+    {% if selected_class and selected_subject %}
+        <form method="POST" action="/totals">
+            <input type="hidden" name="class_id" value="{{ selected_class }}">
+            <input type="hidden" name="subject_id" value="{{ selected_subject }}">
+
+            <div>
+                <div class="table-wrap">
+                    <table class="totals-grid">
+                        <thead>
+                            <tr>
+                                <th rowspan="2" class="th-student">Ученики</th>
+                                {% for p in periods %}
+                                    <th colspan="2" class="th-period">{{ p.name }}</th>
+                                {% endfor %}
+                                <th rowspan="2" class="th-final">Год</th>
+                                <th rowspan="2" class="th-final">Экзам.</th>
+                                <th rowspan="2" class="th-final">Итог</th>
+                            </tr>
+                            <tr>
+                                {% for p in periods %}
+                                    <th class="th-sub">Ср. балл</th>
+                                    <th class="th-sub">Оценка</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for st in students %}
+                                <tr>
+                                    <td class="td-student">{{ loop.index }}. {{ st.fio }}</td>
+                                    {% for p in periods %}
+                                        <td class="td-avg">{{ period_avgs.get((st.id, p.id), '-') }}</td>
+                                        <td class="td-input">
+                                            <input type="text"
+                                                   name="period_{{ p.id }}_{{ st.id }}"
+                                                   class="grade-box"
+                                                   value="{{ saved_totals.get((st.id, p.id, 'period'), '') }}"
+                                                   {% if not can_edit %}readonly{% endif %}
+                                                   maxlength="4"
+                                                   autocomplete="off">
+                                        </td>
+                                    {% endfor %}
+                                    <td class="td-final-input">
+                                        <input type="text"
+                                               name="final_year_{{ st.id }}"
+                                               class="grade-box"
+                                               value="{{ saved_totals.get((st.id, 0, 'year'), '') }}"
+                                               {% if not can_edit %}readonly{% endif %}
+                                               maxlength="4"
+                                               autocomplete="off">
+                                    </td>
+                                    <td class="td-final-input">
+                                        <input type="text"
+                                               name="final_exam_{{ st.id }}"
+                                               class="grade-box"
+                                               value="{{ saved_totals.get((st.id, 0, 'exam'), '') }}"
+                                               {% if not can_edit %}readonly{% endif %}
+                                               maxlength="4"
+                                               autocomplete="off">
+                                    </td>
+                                    <td class="td-final-input">
+                                        <input type="text"
+                                               name="final_final_{{ st.id }}"
+                                               class="grade-box"
+                                               value="{{ saved_totals.get((st.id, 0, 'final'), '') }}"
+                                               {% if not can_edit %}readonly{% endif %}
+                                               maxlength="4"
+                                               autocomplete="off">
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {% if can_edit %}
+                <div>
+                    <button type="submit" class="btn-save">Сохранить итоговые оценки</button>
+                </div>
+            {% endif %}
+        </form>
+    {% endif %}
+</div>
+
+<script>
+    function colorizeBox(el) {
+        el.classList.remove('grade-color-5', 'grade-color-4', 'grade-color-3', 'grade-color-2');
+        const v = el.value.trim();
+        if (!v) return;
+        if (v.includes('2')) el.classList.add('grade-color-2');
+        else if (v.includes('3')) el.classList.add('grade-color-3');
+        else if (v.includes('4')) el.classList.add('grade-color-4');
+        else if (v.includes('5')) el.classList.add('grade-color-5');
+    }
+
+    document.querySelectorAll('.grade-box').forEach(inp => {
+        colorizeBox(inp);
+        inp.addEventListener('input', () => colorizeBox(inp));
+    });
+</script>
+</body>
+</html>
