@@ -2,38 +2,70 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>АСУ РСО — Вход в систему</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>АСУ РСО. Вход в систему</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background: #1e3a8a; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .card { background: white; width: 380px; padding: 35px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-        h2 { text-align: center; margin-bottom: 24px; color: #1e3a8a; font-size: 22px; }
-        .form-group { margin-bottom: 16px; }
-        label { display: block; font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 6px; }
-        input { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; outline: none; }
-        input:focus { border-color: #2563eb; }
-        button { width: 100%; background: #2563eb; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        button:hover { background: #1d4ed8; }
-        .error { background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 6px; font-size: 13px; text-align: center; margin-bottom: 16px; font-weight: bold; }
+        * { box-sizing: border-box; }
+        body { font-family: Tahoma, Arial, sans-serif; font-size: 12px; margin: 0; background: #e9edf2; color: #333; }
+        .top-header { background: #1c609c; color: white; padding: 8px 18px; border-bottom: 2px solid #0f4370; font-size: 14px; font-weight: bold; }
+        .login-box {
+            max-width: 340px;
+            margin: 70px auto;
+            background: #ffffff;
+            border: 1px solid #8ba0b5;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+            border-radius: 2px;
+        }
+        .login-header { background: #dce6f1; color: #1c609c; font-weight: bold; padding: 8px 14px; border-bottom: 1px solid #b8cce4; font-size: 13px; }
+        .login-body { padding: 16px 18px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 4px; font-size: 11px; color: #1e3a56; }
+        .form-group input { width: 100%; padding: 6px 8px; border: 1px solid #7f9db9; font-size: 12px; border-radius: 2px; }
+        .btn-login {
+            width: 100%;
+            background: #1c609c;
+            color: #ffffff;
+            border: 1px solid #0f4370;
+            padding: 7px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        .btn-login:hover { background: #154b7a; }
+        .flash-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 6px 10px; margin-bottom: 12px; font-size: 11px; }
+        .login-footer { background: #f4f7fa; border-top: 1px solid #dce6f1; padding: 8px 14px; font-size: 10px; color: #64748b; text-align: center; }
     </style>
 </head>
 <body>
-<div class="card">
-    <h2>АСУ РСО (Локальный) 🏛️</h2>
-    {% if get_flashed_messages() %}
-        <div class="error">Неверный логин или пароль</div>
-    {% endif %}
-    <form method="POST">
-        <div class="form-group">
-            <label>Логин</label>
-            <input type="text" name="login" required placeholder="admin или teacher">
-        </div>
-        <div class="form-group">
-            <label>Пароль</label>
-            <input type="password" name="password" required placeholder="••••">
-        </div>
-        <button type="submit">Войти в систему</button>
-    </form>
+
+<div class="top-header">АСУ РСО &nbsp;|&nbsp; Автоматизированная система управления</div>
+
+<div class="login-box">
+    <div class="login-header">Вход в электронный журнал / дневник</div>
+    <div class="login-body">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for cat, msg in messages %}
+                    <div class="flash-error">{{ msg }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="/login">
+            <div class="form-group">
+                <label>Логин:</label>
+                <input type="text" name="login" required autofocus autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label>Пароль:</label>
+                <input type="password" name="password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-login">Войти в систему</button>
+        </form>
+    </div>
+    <div class="login-footer">Учителя и ученики используют персональные логин и пароль</div>
 </div>
+
 </body>
 </html>
